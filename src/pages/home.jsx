@@ -6,7 +6,7 @@ export default function HomeScreen() {
   const [ceramicName, setCeramicName] = useState("");
   const [timeFilter, setTimeFilter] = useState("day");
   const [netProduction, setNetProduction] = useState(0);
-  const [sizeData, setSizeData] = useState([]); // production by size
+  const [sizeData, setSizeData] = useState([]);
 
   useEffect(() => {
     fetchCeramicName();
@@ -43,11 +43,15 @@ export default function HomeScreen() {
     if (filter === "week") fromDate.setDate(fromDate.getDate() - 7);
     if (filter === "month") fromDate.setMonth(fromDate.getMonth() - 1);
 
-    const { data } = await supabase
+    let query = supabase
       .from("production_data")
-      .select("kiln_entry_box, packing_box, fired_loss_box, before_flow")
-      .gte("date", fromDate.toISOString().split("T")[0]);
+      .select("kiln_entry_box, packing_box, fired_loss_box, before_flow");
 
+    if (filter !== "all") {
+      query = query.gte("date", fromDate.toISOString().split("T")[0]);
+    }
+
+    const { data } = await query;
     calculateNetProduction(data);
   }
 
@@ -67,11 +71,13 @@ export default function HomeScreen() {
     if (filter === "week") fromDate.setDate(fromDate.getDate() - 7);
     if (filter === "month") fromDate.setMonth(fromDate.getMonth() - 1);
 
-    const { data } = await supabase
-      .from("production_data")
-      .select("size, packing_box")
-      .gte("date", fromDate.toISOString().split("T")[0]);
+    let query = supabase.from("production_data").select("size, packing_box");
 
+    if (filter !== "all") {
+      query = query.gte("date", fromDate.toISOString().split("T")[0]);
+    }
+
+    const { data } = await query;
     groupBySize(data);
   }
 
@@ -115,29 +121,31 @@ export default function HomeScreen() {
   return (
     <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
       {/* Header */}
-      <h1 className="text-xl font-bold mb-6 text-gray-800">
-        👋 Welcome, <span className="text-indigo-600">{ceramicName}</span>
-      </h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-800 mb-4 md:mb-0">
+          👋 Welcome, <span className="text-indigo-600">{ceramicName}</span>
+        </h1>
+        <select
+          value={timeFilter}
+          onChange={(e) => setTimeFilter(e.target.value)}
+          className="text-sm font-medium border border-indigo-200 rounded px-4 py-2 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+        >
+          <option value="day">Today</option>
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
 
       {/* Dashboard Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Net Production Card */}
         <Card className="shadow-md hover:shadow-xl transition rounded-xl border-0 bg-white">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center justify-between w-full">
-              <span>Net Production</span>
-              <select
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="ml-2 text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-              </select>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Net Production
             </CardTitle>
           </CardHeader>
-
           <CardContent>
             <p className="text-2xl font-bold text-indigo-600">
               {netProduction.toFixed(2)}
@@ -147,20 +155,10 @@ export default function HomeScreen() {
         </Card>
 
         {/* Production by Size Table */}
-
         <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center justify-between w-full">
-              <span>Production by Size</span>
-              <select
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="ml-2 text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-              </select>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Production by Size
             </CardTitle>
           </CardHeader>
           <CardContent>

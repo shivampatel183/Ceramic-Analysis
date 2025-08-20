@@ -12,6 +12,7 @@ import {
   Routes,
   Route,
   Navigate,
+  NavLink,
 } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
@@ -21,38 +22,84 @@ import Profile from "./pages/profile";
 import Login from "./pages/login";
 import Register from "./pages/register";
 import Data from "./pages/data";
+import Analysis from "./pages/analysis";
 
 const Sidebar = ({ onLogout, userId }) => (
   <div className="fixed top-0 left-0 h-screen w-[250px] backdrop-blur-md bg-white/30 border-r border-gray-200 text-gray-900 flex flex-col px-6 py-8 shadow-md z-50 font-[system-ui]">
     <h2 className="text-2xl font-bold mb-10 tracking-tight text-blue-600">
-      Dashboard
+      Ceramic Cost Calculator
     </h2>
 
     <nav className="flex flex-col gap-3 text-[15px]">
-      <a
-        href="/home"
-        className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100 hover:text-blue-600 transition"
+      <NavLink
+        to="/home"
+        className={({ isActive }) =>
+          `flex items-center gap-3 p-2 rounded-lg transition 
+           ${
+             isActive
+               ? "bg-blue-200 text-blue-700"
+               : "hover:bg-blue-100 hover:text-blue-600"
+           }`
+        }
       >
         <Home size={18} /> Home
-      </a>
-      <a
-        href="/sheet"
-        className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100 hover:text-blue-600 transition"
+      </NavLink>
+
+      <NavLink
+        to="/sheet"
+        className={({ isActive }) =>
+          `flex items-center gap-3 p-2 rounded-lg transition 
+           ${
+             isActive
+               ? "bg-blue-200 text-blue-700"
+               : "hover:bg-blue-100 hover:text-blue-600"
+           }`
+        }
       >
-        <BarChart3 size={18} /> Sheet
-      </a>
-      <a
-        href="/data"
-        className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100 hover:text-blue-600 transition"
+        <BarChart3 size={18} /> Entry
+      </NavLink>
+
+      <NavLink
+        to="/data"
+        className={({ isActive }) =>
+          `flex items-center gap-3 p-2 rounded-lg transition 
+           ${
+             isActive
+               ? "bg-blue-200 text-blue-700"
+               : "hover:bg-blue-100 hover:text-blue-600"
+           }`
+        }
       >
         <Database size={18} /> Data
-      </a>
-      <a
-        href="/profile"
-        className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100 hover:text-blue-600 transition"
+      </NavLink>
+
+      <NavLink
+        to="/analysis"
+        className={({ isActive }) =>
+          `flex items-center gap-3 p-2 rounded-lg transition 
+           ${
+             isActive
+               ? "bg-blue-200 text-blue-700"
+               : "hover:bg-blue-100 hover:text-blue-600"
+           }`
+        }
+      >
+        <BarChart3 size={18} /> Analysis
+      </NavLink>
+
+      <NavLink
+        to="/profile"
+        className={({ isActive }) =>
+          `flex items-center gap-3 p-2 rounded-lg transition 
+           ${
+             isActive
+               ? "bg-blue-200 text-blue-700"
+               : "hover:bg-blue-100 hover:text-blue-600"
+           }`
+        }
       >
         <User size={18} /> Profile
-      </a>
+      </NavLink>
     </nav>
 
     <button
@@ -142,6 +189,11 @@ export default function App() {
           <Route
             path="/"
             element={<Navigate to={user ? "/home" : "/login"} />}
+          />
+          import Analysis from "./pages/analysis";
+          <Route
+            path="/analysis"
+            element={user ? <Analysis /> : <Navigate to="/login" />}
           />
         </Routes>
       </div>
