@@ -27,6 +27,7 @@ export default function SmallDialog() {
             placeholder="Ceramic Name"
             className="w-full p-2 border rounded-md text-sm focus:ring-1 focus:ring-blue-400"
           />
+
           <Button className="w-full mt-3 text-sm py-2">Save</Button>
         </div>
       </DialogContent>
