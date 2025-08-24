@@ -40,17 +40,21 @@ export default function DataTable() {
       </div>
     );
   }
-
-  // ✅ remove "user_id"
-  const columns = Object.keys(rows[0]).filter((col) => col !== "user_id");
+  const columns = Object.keys(rows[0]).filter(
+    (col) => col !== "user_id" && col !== "id"
+  );
 
   // ✅ filter rows by search
   const filteredRows = rows.filter((row) =>
     Object.values(row).join(" ").toLowerCase().includes(search.toLowerCase())
   );
 
+  const sortedRows = [...filteredRows].sort(
+    (a, b) => new Date(a.date) - new Date(b.date)
+  );
+
   return (
-    <div className=" p-6 bg-gradient-to-br from-blue-50 to-blue-100">
+    <div className=" bg-gradient-to-br from-blue-50 to-blue-100">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
           Production Data Table
@@ -83,7 +87,7 @@ export default function DataTable() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row, rowIndex) => (
+              {sortedRows.map((row, rowIndex) => (
                 <tr
                   key={rowIndex}
                   className={`transition-colors ${

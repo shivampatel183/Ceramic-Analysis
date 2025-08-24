@@ -3,7 +3,6 @@ import { supabase } from "../supabaseClient";
 
 export default function Sheet() {
   const [formData, setFormData] = useState({
-    // 📦 Production sections
     size: "",
     green_box_weight: "",
     press_box: "",
@@ -14,13 +13,9 @@ export default function Sheet() {
     spray_dryer_production: "",
     coal_units_use: "",
     gas_consumption: "",
-
-    // 🏭 Boxes
     pre_box: "",
     std_box: "",
     eco_box: "",
-
-    // 🎨 Colors
     base: "",
     brown: "",
     black: "",
@@ -28,8 +23,6 @@ export default function Sheet() {
     red: "",
     yellow: "",
     green: "",
-
-    // ⚙️ Others
     maintenance: "",
     legal_illegal: "",
     office: "",
@@ -57,7 +50,12 @@ export default function Sheet() {
         return;
       }
 
-      // Convert numeric fields (everything except size)
+      // ✅ size validation
+      if (!formData.size) {
+        alert("Please select a size before submitting.");
+        return;
+      }
+
       const numericFields = Object.keys(formData).filter((k) => k !== "size");
       const cleanedData = { ...formData };
       numericFields.forEach((f) => {
@@ -84,7 +82,6 @@ export default function Sheet() {
     }
   };
 
-  // ✅ Group fields by category
   const categories = {
     "📦 Production": [
       "size",
@@ -121,13 +118,18 @@ export default function Sheet() {
     ],
   };
 
+  const sizeOptions = ["600x600", "200x1000", "150x900", "200x1200", "400x400"];
+
   return (
-    <div className="max-w-6xl mx-auto p-8 bg-white shadow-lg rounded-xl mt-8">
-      <h2 className="text-2xl font-bold text-center mb-6 text-indigo-600">
-        Production Data Entry
+    <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
+      <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
+        📋 Production Data Entry
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-10">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-10 max-w-6xl mx-auto bg-white shadow-md rounded-xl p-8"
+      >
         {Object.entries(categories).map(([category, fields]) => (
           <div key={category}>
             <h3 className="text-lg font-semibold text-indigo-700 border-b pb-2 mb-4">
@@ -139,14 +141,31 @@ export default function Sheet() {
                   <label className="text-sm font-semibold text-gray-700 mb-1">
                     {key.replace(/_/g, " ")}
                   </label>
-                  <input
-                    type="text"
-                    name={key}
-                    value={formData[key]}
-                    onChange={handleChange}
-                    placeholder={`Enter ${key.replace(/_/g, " ")}`}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
+
+                  {key === "size" ? (
+                    <select
+                      name={key}
+                      value={formData[key]}
+                      onChange={handleChange}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                      <option value="">Select Size</option>
+                      {sizeOptions.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      name={key}
+                      value={formData[key]}
+                      onChange={handleChange}
+                      placeholder={`Enter ${key.replace(/_/g, " ")}`}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                  )}
                 </div>
               ))}
             </div>
