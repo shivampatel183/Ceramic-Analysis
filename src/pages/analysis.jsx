@@ -119,6 +119,7 @@ export default function Analysis() {
       const glazeLoss = (beforeFlow - kilnEntry) * loss;
       const glazeConsumption = beforeFlow * cons;
 
+      totalLoss += glazeLoss;
       totalConsumption += glazeConsumption;
 
       sizeWise[size] = {
