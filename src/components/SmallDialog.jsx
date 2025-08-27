@@ -21,7 +21,7 @@ export default function SmallDialog() {
         </DialogHeader>
         <div className="text-sm text-gray-600 space-y-2">
           <p>Enter details for your new production entry below:</p>
-          {/* Example input */}
+
           <input
             type="text"
             placeholder="Ceramic Name"
