@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
 export function calculateNetProduction({ netProduction, sizeData }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* Net Production */}
       <Card className="shadow-md rounded-xl border-0 bg-white">
         <CardHeader>
           <CardTitle className="text-sm font-medium text-gray-600">
@@ -19,7 +18,6 @@ export function calculateNetProduction({ netProduction, sizeData }) {
         </CardContent>
       </Card>
 
-      {/* Production by Size */}
       <Card className="shadow-md rounded-xl border-0 bg-white">
         <CardHeader>
           <CardTitle className="text-sm font-medium text-gray-600">
