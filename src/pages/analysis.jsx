@@ -225,6 +225,7 @@ export default function Analysis() {
                 <p className="text-lg font-bold text-indigo-600">
                   {totalGlazeConsumption.toFixed(2)}
                 </p>
+              </div>
               <div className="mt-4">
                 <p className="text-xs text-gray-500">Total Line Loss</p>
                 <p className="text-lg font-bold text-indigo-600">
