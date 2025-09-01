@@ -238,7 +238,7 @@ export default function Analysis() {
         <Card className="shadow-md rounded-xl border-0 bg-white">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-gray-600">
-              Glaze Consumption by Siz
+              Glaze Consumption by Size
             </CardTitle>
           </CardHeader>
           <CardContent>
