@@ -266,7 +266,7 @@ export default function Analysis() {
                       </td>
                     </tr>
                   ))
-               
+                ) : (
                   <tr>
                     <td colSpan="3" className="p-2 text-center text-gray-500">
                       No data available
