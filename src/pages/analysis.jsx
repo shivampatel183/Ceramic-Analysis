@@ -230,7 +230,6 @@ export default function Analysis() {
                 <p className="text-xs text-gray-500">Total Line Loss</p>
                 <p className="text-lg font-bold text-indigo-600">
                   {totalGlazeLoss.toFixed(2)}
-                </p>
               </div>
             </div>
           </CardContent>
