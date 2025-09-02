@@ -208,7 +208,26 @@ export default function Analysis() {
             </table>
           </CardContent>
         </Card>
-      </div>">Total Line Loss</p>
+      </div>
+
+      {/* Glaze Consumption */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
+        <Card className="shadow-md rounded-xl border-0 bg-white">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Glaze Consumption
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col justify-between mb-4">
+              <div>
+                <p className="text-xs text-gray-500">Total Consumption</p>
+                <p className="text-lg font-bold text-indigo-600">
+                  {totalGlazeConsumption.toFixed(2)}
+                </p>
+              </div>
+              <div className="mt-4">
+                <p className="text-xs text-gray-500">Total Line Loss</p>
                 <p className="text-lg font-bold text-indigo-600">
                   {totalGlazeLoss.toFixed(2)}
                 </p>
