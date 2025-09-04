@@ -11,7 +11,7 @@ const glazeFactors = {
 export async function fetchGlazeConsumption(filter, applyDateFilter) {
   let query = supabase
     .from("production_data")
-    .select("size, kiln_entry_box, before_flow, date");
+    .select("size, kiln_entry_box, press_box, date");
 
   query = applyDateFilter(query, filter);
 
@@ -28,7 +28,8 @@ export async function fetchGlazeConsumption(filter, applyDateFilter) {
   data.forEach((row) => {
     const size = row.size;
     const kilnEntry = Number(row.kiln_entry_box) || 0;
-    const beforeFlow = (Number(row.before_flow) || 0) * 0.995;
+    const beforeFlow = (Number(row.press_box) || 0) * 0.995;
+    console.log(`${beforeFlow}`);
 
     if (!glazeFactors[size]) return;
 
@@ -36,7 +37,6 @@ export async function fetchGlazeConsumption(filter, applyDateFilter) {
 
     const glazeLoss = (beforeFlow - kilnEntry) * loss;
     const glazeConsumption = beforeFlow * cons;
-
     totalLoss += glazeLoss;
     totalConsumption += glazeConsumption;
 
