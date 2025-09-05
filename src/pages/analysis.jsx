@@ -347,7 +347,6 @@ export default function Analysis() {
       </div>
       {/* Gas Consumption */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        {/* Gas Summary */}
         <Card className="shadow-md rounded-xl border-0 bg-white">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-gray-600">
