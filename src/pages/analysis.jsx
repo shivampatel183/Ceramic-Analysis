@@ -356,6 +356,12 @@ export default function Analysis() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-between mb-4">
+              {/* <div>
+                <p className="text-xs text-gray-500">kcl / kg</p>
+                <p className="text-lg font-bold text-indigo-600">
+                  {kclPerKg ? kclPerKg.toFixed(2) : "0.00"}
+                </p>
+              </div> */}
               <div>
                 <p className="text-xs text-gray-500">Total Gas Consumption</p>
                 <p className="text-lg font-bold text-indigo-600">
