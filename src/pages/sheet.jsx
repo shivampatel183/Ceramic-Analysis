@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 
 export default function Sheet() {
   const [formData, setFormData] = useState({
+    date: new Date().toISOString().split("T")[0],
     size: "",
     green_box_weight: "",
     press_box: "",
@@ -52,13 +53,14 @@ export default function Sheet() {
         return;
       }
 
-      // ✅ size validation
       if (!formData.size) {
         alert("Please select a size before submitting.");
         return;
       }
 
-      const numericFields = Object.keys(formData).filter((k) => k !== "size");
+      const numericFields = Object.keys(formData).filter(
+        (k) => k !== "size" && k !== "date"
+      );
       const cleanedData = { ...formData };
       numericFields.forEach((f) => {
         cleanedData[f] = cleanedData[f] !== "" ? Number(cleanedData[f]) : null;
@@ -74,9 +76,10 @@ export default function Sheet() {
       } else {
         console.log("✅ Insert success:", data);
         alert("Data inserted successfully!");
-        setFormData(
-          Object.fromEntries(Object.keys(formData).map((k) => [k, ""]))
-        );
+        setFormData({
+          ...Object.fromEntries(Object.keys(formData).map((k) => [k, ""])),
+          date: new Date().toISOString().split("T")[0],
+        });
       }
     } catch (err) {
       console.error("❌ Unexpected error:", err);
@@ -86,6 +89,7 @@ export default function Sheet() {
 
   const categories = {
     "📦 Production": [
+      "date",
       "size",
       "green_box_weight",
       "press_box",
@@ -160,6 +164,14 @@ export default function Sheet() {
                         </option>
                       ))}
                     </select>
+                  ) : key === "date" ? (
+                    <input
+                      type="date"
+                      name={key}
+                      value={formData[key]}
+                      onChange={handleChange}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
                   ) : (
                     <input
                       type="text"

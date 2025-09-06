@@ -40,6 +40,8 @@ export default function DataTable() {
       </div>
     );
   }
+
+  // ✅ get columns (remove id, user_id)
   const columns = Object.keys(rows[0]).filter(
     (col) => col !== "user_id" && col !== "id"
   );
@@ -49,9 +51,21 @@ export default function DataTable() {
     Object.values(row).join(" ").toLowerCase().includes(search.toLowerCase())
   );
 
+  // ✅ sort by date
   const sortedRows = [...filteredRows].sort(
     (a, b) => new Date(a.date) - new Date(b.date)
   );
+
+  // ✅ helper to format date
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (isNaN(d)) return value; // if not valid date, return as-is
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`; // DD-MM-YYYY
+  };
 
   return (
     <div className=" bg-gradient-to-br from-blue-50 to-blue-100">
@@ -99,7 +113,11 @@ export default function DataTable() {
                       key={col}
                       className="px-6 py-3 text-sm border-b border-gray-200 min-w-[150px] whitespace-nowrap"
                     >
-                      {row[col] !== null ? row[col] : "-"}
+                      {col === "date"
+                        ? formatDate(row[col])
+                        : row[col] !== null
+                        ? row[col]
+                        : "-"}
                     </td>
                   ))}
                 </tr>
