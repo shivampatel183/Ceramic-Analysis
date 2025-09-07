@@ -3,9 +3,6 @@ export function Card({ children, className }) {
     <div className={`bg-white shadow rounded-lg p-4 ${className}`}>
       {children}
     </div>
-  );
-}
-
 export function CardHeader({ children }) {
   return <div className="mb-2 font-bold text-lg">{children}</div>;
 }
