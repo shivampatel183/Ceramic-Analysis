@@ -62,7 +62,6 @@ function groupBySize(data) {
       (kilnEntry - packingBox - kilnFiredLoss - sizingFiredLoss) -
       kilnEntry * 0.015;
     grouped[size] = (grouped[size] || 0) + production;
-    console.log(`${size}  ${production} ${grouped[size]}`);
   });
 
   return Object.entries(grouped).map(([size, total]) => ({ size, total }));

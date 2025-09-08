@@ -31,21 +31,31 @@ export async function fetchFuelConsumption(filter, applyDateFilter) {
     return { totalFuel: 0, fuelBySize: {}, coalConsumptionKgPerTon: 0 };
   }
 
+  // ✅ Daily specific coal consumption (same for all sizes that day)
   const coalKgPerTon = (cumulativeCoal / cumulativeSprayDryer) * 1000 * 5.9;
 
-  let totalFuelConsumption = 0;
-  let sizeWiseFuel = {};
+  // ✅ First, calculate powder per size (not fuel yet)
+  const sizeWisePowder = {};
+  let totalPowder = 0;
 
   data.forEach((row) => {
     const size = row.size;
     const pressBox = Number(row.press_box) || 0;
     const greenWeight = Number(row.green_box_weight) || 0;
 
-    const perDayPowder = pressBox * greenWeight * 1.05;
-    const fuelConsumption = (perDayPowder * coalKgPerTon) / 1000;
+    const powder = pressBox * greenWeight * 1.05;
+    sizeWisePowder[size] = (sizeWisePowder[size] || 0) + powder;
+    totalPowder += powder;
+  });
 
-    totalFuelConsumption += fuelConsumption;
-    sizeWiseFuel[size] = (sizeWiseFuel[size] || 0) + fuelConsumption;
+  // ✅ Now distribute daily fuel proportionally
+  let sizeWiseFuel = {};
+  let totalFuelConsumption = 0;
+
+  Object.entries(sizeWisePowder).forEach(([size, powder]) => {
+    const fuelShare = (powder / totalPowder) * (cumulativeCoal * 5.9); // distribute daily coal
+    sizeWiseFuel[size] = fuelShare;
+    totalFuelConsumption += fuelShare;
   });
 
   return {

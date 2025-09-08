@@ -29,7 +29,6 @@ export async function fetchGlazeConsumption(filter, applyDateFilter) {
     const size = row.size;
     const kilnEntry = Number(row.kiln_entry_box) || 0;
     const beforeFlow = (Number(row.press_box) || 0) * 0.995;
-    console.log(`${beforeFlow}`);
 
     if (!glazeFactors[size]) return;
 

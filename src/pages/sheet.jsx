@@ -74,7 +74,6 @@ export default function Sheet() {
         console.error("❌ Insert error:", error.message);
         alert("Insert failed: " + error.message);
       } else {
-        console.log("✅ Insert success:", data);
         alert("Data inserted successfully!");
         setFormData({
           ...Object.fromEntries(Object.keys(formData).map((k) => [k, ""])),

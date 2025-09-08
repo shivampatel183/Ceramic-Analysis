@@ -13,7 +13,6 @@ export default function DataTable() {
           .from("production_data")
           .select("*");
         if (error) throw error;
-        console.log("✅ Supabase data:", data);
         setRows(data || []);
       } catch (err) {
         console.error("❌ Error fetching data:", err.message);
