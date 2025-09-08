@@ -50,6 +50,7 @@ export async function fetchGasConsumption(timeFilter, applyDateFilter) {
         denom += value;
       });
 
+      // 🔹 Distribute daily gas across sizes
       Object.entries(sizeValues).forEach(([size, value]) => {
         const share = denom > 0 ? (value / denom) * dailyTotal : 0;
         gasBySize[size] = (gasBySize[size] || 0) + share;
