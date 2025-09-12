@@ -94,7 +94,6 @@ export default function Sheet() {
       "press_box",
       "before_flow",
       "kiln_entry_box",
-      "packing_box",
       "fired_loss_box",
       "sizing_fire_loss_boxes",
       "spray_dryer_production",
@@ -102,7 +101,7 @@ export default function Sheet() {
       "daily_electricity_units_use",
       "gas_consumption",
     ],
-    "🏭 Boxes": ["pre_box", "std_box", "eco_box"],
+    "🏭 Boxes": ["packing_box", "pre_box", "std_box", "eco_box"],
     "🎨 Colors (Die)": [
       "base",
       "brown",

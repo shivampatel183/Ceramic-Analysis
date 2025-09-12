@@ -11,6 +11,7 @@ import {
 import { fetchFuelConsumption } from "../calculations/fuel";
 import { fetchGasConsumption } from "../calculations/gas";
 import { fetchElectricityCost } from "../calculations/electricity";
+import { fetchPackingCost } from "../calculations/packing";
 
 export default function Analysis() {
   const [timeFilter, setTimeFilter] = useState("day");
@@ -40,6 +41,11 @@ export default function Analysis() {
 
   // electricity states
   const [electricityCost, setElectricityCost] = useState({
+    sizeWise: {},
+    total: 0,
+  });
+  // packing states
+  const [packingCost, setPackingCost] = useState({
     sizeWise: {},
     total: 0,
   });
@@ -101,6 +107,10 @@ export default function Analysis() {
         applyDateFilter
       );
       setElectricityCost(electricity);
+
+      // Packing
+      const packing = await fetchPackingCost(timeFilter, applyDateFilter);
+      setPackingCost(packing);
     })();
   }, [timeFilter]);
 
@@ -461,6 +471,68 @@ export default function Analysis() {
               <tbody>
                 {Object.keys(electricityCost.sizeWise || {}).length > 0 ? (
                   Object.entries(electricityCost.sizeWise).map(
+                    ([size, cost], idx) => (
+                      <tr
+                        key={idx}
+                        className="border-t hover:bg-gray-50 transition"
+                      >
+                        <td className="p-2">{size}</td>
+                        <td className="p-2 text-right">₹ {cost.toFixed(2)}</td>
+                      </tr>
+                    )
+                  )
+                ) : (
+                  <tr>
+                    <td colSpan="2" className="p-2 text-center text-gray-400">
+                      No data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Packing Cost */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
+        {/* Total Packing Cost */}
+        <Card className="shadow-md rounded-xl border-0 bg-white">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Packing Cost
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between mb-4">
+              <div>
+                <p className="text-xs text-gray-500">Total Packing Cost</p>
+                <p className="text-lg font-bold text-indigo-600">
+                  ₹ {packingCost.total ? packingCost.total.toFixed(2) : "0.00"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Packing Cost by Size */}
+        <Card className="shadow-md rounded-xl border-0 bg-white">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Packing Cost by Size
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-gray-100 text-gray-600">
+                  <th className="p-2 text-left">Size</th>
+                  <th className="p-2 text-right">Cost (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(packingCost.sizeWise || {}).length > 0 ? (
+                  Object.entries(packingCost.sizeWise).map(
                     ([size, cost], idx) => (
                       <tr
                         key={idx}
