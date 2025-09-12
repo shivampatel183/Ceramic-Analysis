@@ -45,11 +45,6 @@ export async function fetchProductionBySize(filter, applyDateFilter) {
   return groupBySize(data);
 }
 
-function groupBySize(data) {
-  if (!data || data.length === 0) {
-    return [];
-  }
-
   const grouped = {};
   data.forEach((row) => {
     const size = row.size;
