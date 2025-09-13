@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
-
-// 🔹 Import calculation helpers
 import { fetchPowderConsumption } from "../calculations/powder";
 import { fetchGlazeConsumption } from "../calculations/glaze";
 import {
@@ -12,6 +10,12 @@ import { fetchFuelConsumption } from "../calculations/fuel";
 import { fetchGasConsumption } from "../calculations/gas";
 import { fetchElectricityCost } from "../calculations/electricity";
 import { fetchPackingCost } from "../calculations/packing";
+import { fetchFixedCost } from "../calculations/fixedcost";
+import { fetchInkCost } from "../calculations/inkcost";
+import SizeTableCard from "../components/SizeTableCard";
+import StatCard from "../components/StatCard";
+import FinalResultTable from "../components/FinalResultTable";
+import { fetchFinalResult } from "../calculations/finalresult";
 
 export default function Analysis() {
   const [timeFilter, setTimeFilter] = useState("day");
@@ -49,6 +53,18 @@ export default function Analysis() {
     sizeWise: {},
     total: 0,
   });
+
+  // fixedCost
+  const [fixedCost, setFixedCost] = useState({
+    sizeWise: {},
+    total: 0,
+  });
+
+  // ink cost states
+  const [inkCost, setInkCost] = useState({ sizeWise: {}, total: 0 });
+
+  // final result
+  const [finalResult, setFinalResult] = useState(null);
 
   // 🔹 Apply date filter
   function applyDateFilter(query, filter) {
@@ -111,6 +127,18 @@ export default function Analysis() {
       // Packing
       const packing = await fetchPackingCost(timeFilter, applyDateFilter);
       setPackingCost(packing);
+
+      // Fixed Cost
+      const fixed = await fetchFixedCost(timeFilter, applyDateFilter);
+      setFixedCost(fixed);
+
+      // Ink Cost
+      const ink = await fetchInkCost(timeFilter, applyDateFilter);
+      setInkCost(ink);
+
+      // Final Result
+      const data = await fetchFinalResult(timeFilter, applyDateFilter);
+      setFinalResult(data);
     })();
   }, [timeFilter]);
 
@@ -134,426 +162,171 @@ export default function Analysis() {
         </select>
       </div>
 
-      {/* Net Production + Production by Size */}
+      {/* final result table */}
+      {finalResult && <FinalResultTable data={finalResult} />}
+
+      {/* Net Production */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Net Production */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Net Production
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-bold text-indigo-600">
-              {netProduction.toFixed(2)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Units</p>
-          </CardContent>
-        </Card>
-
-        {/* Production by Size */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Production by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Total Production</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sizeData.length > 0 ? (
-                  sizeData.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="p-2">{row.size}</td>
-                      <td className="p-2 text-right">{row.total}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="2" className="p-2 text-center text-gray-500">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Net Production"
+          label="Total Units"
+          value={netProduction}
+        />
+        <SizeTableCard
+          title="Production by Size"
+          data={Object.fromEntries(
+            sizeData.map((row) => [row.size, row.total])
+          )}
+          columns={[
+            { label: "Size" },
+            { label: "Total Production", align: "text-right" },
+          ]}
+        />
       </div>
 
-      {/* Powder Consumption + Powder by Size */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        {/* Total Powder */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Powder Consumption
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-bold text-indigo-600">
-              {totalPowder.toFixed(2)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Kg (approx.)</p>
-          </CardContent>
-        </Card>
-
-        {/* Powder Consumption by Size */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Powder Consumption by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Powder Consumption</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(powderBySize).length > 0 ? (
-                  Object.entries(powderBySize).map(([size, value], idx) => (
-                    <tr
-                      key={idx}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="p-2">{size}</td>
-                      <td className="p-2 text-right">{value.toFixed(2)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="2" className="p-2 text-center text-gray-500">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+      {/* Powder */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Total Powder Consumption"
+          label="Total Powder"
+          value={totalPowder}
+          unit="Kg"
+        />
+        <SizeTableCard
+          title="Powder Consumption by Size"
+          data={powderBySize}
+          columns={[
+            { label: "Size" },
+            { label: "Consumption (Kg)", align: "text-right" },
+          ]}
+        />
       </div>
 
-      {/* Glaze Consumption */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Glaze Consumption
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col justify-between mb-4">
-              <div>
-                <p className="text-xs text-gray-500">Total Consumption</p>
-                <p className="text-lg font-bold text-indigo-600">
-                  {totalGlazeConsumption.toFixed(2)}
-                </p>
-              </div>
-              <div className="mt-4">
-                <p className="text-xs text-gray-500">Total Line Loss</p>
-                <p className="text-lg font-bold text-indigo-600">
-                  {totalGlazeLoss.toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Glaze Consumption by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Line Loss</th>
-                  <th className="p-2 text-right">Consumption</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(glazeBySize).length > 0 ? (
-                  Object.entries(glazeBySize).map(([size, values], idx) => (
-                    <tr
-                      key={idx}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="p-2">{size}</td>
-                      <td className="p-2 text-right">
-                        {values.loss.toFixed(2)}
-                      </td>
-                      <td className="p-2 text-right">
-                        {values.consumption.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="3" className="p-2 text-center text-gray-500">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Fuel Consumption */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Fuel Consumption
-            </CardTitle>
-          </CardHeader>
-          <div className="flex flex-col justify-between mb-4">
+      {/* Glaze */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Glaze Consumption"
+          label="Total Consumption"
+          value={totalGlazeConsumption}
+          extra={
             <div>
-              <p className="text-xs text-gray-500">Total Fuel Consumption</p>
+              <p className="text-xs text-gray-500">Total Line Loss</p>
               <p className="text-lg font-bold text-indigo-600">
-                {totalFuel.toFixed(2)}
+                {totalGlazeLoss.toFixed(2)}
               </p>
             </div>
-          </div>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Fuel Consumption by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Fuel Consumption</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(fuelBySize).length > 0 ? (
-                  Object.entries(fuelBySize).map(([size, value], idx) => (
-                    <tr
-                      key={idx}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="p-2">{size}</td>
-                      <td className="p-2 text-right">{value.toFixed(2)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="2" className="p-2 text-center text-gray-400">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+          }
+        />
+        <SizeTableCard
+          title="Glaze by Size"
+          data={Object.fromEntries(
+            Object.entries(glazeBySize).map(([size, values]) => [
+              size,
+              [values.loss, values.consumption],
+            ])
+          )}
+          columns={[
+            { label: "Size" },
+            { label: "Line Loss", align: "text-right" },
+            { label: "Consumption", align: "text-right" },
+          ]}
+        />
       </div>
 
-      {/* gas consumption */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Gas Consumption
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between mb-4">
-              <div>
-                <p className="text-xs text-gray-500">Total Gas Consumption</p>
-                <p className="text-lg font-bold text-indigo-600">
-                  {totalGas ? totalGas.toFixed(2) : "0.00"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gas by Size */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Gas Consumption by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Gas Consumption</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(gasBySize || {}).length > 0 ? (
-                  Object.entries(gasBySize).map(([size, value], idx) => (
-                    <tr
-                      key={idx}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="p-2">{size}</td>
-                      <td className="p-2 text-right">{value.toFixed(2)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="2" className="p-2 text-center text-gray-400">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+      {/* Fuel */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Fuel Consumption"
+          label="Total Fuel"
+          value={totalFuel}
+        />
+        <SizeTableCard
+          title="Fuel by Size"
+          data={fuelBySize}
+          columns={[{ label: "Size" }, { label: "Fuel", align: "text-right" }]}
+        />
       </div>
 
-      {/* Electricity Cost */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        {/* Total Electricity Cost */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Electricity Cost
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between mb-4">
-              <div>
-                <p className="text-xs text-gray-500">Total Electricity Cost</p>
-                <p className="text-lg font-bold text-indigo-600">
-                  ₹{" "}
-                  {electricityCost.total
-                    ? electricityCost.total.toFixed(2)
-                    : "0.00"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Electricity Cost by Size */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Electricity Cost by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Cost (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(electricityCost.sizeWise || {}).length > 0 ? (
-                  Object.entries(electricityCost.sizeWise).map(
-                    ([size, cost], idx) => (
-                      <tr
-                        key={idx}
-                        className="border-t hover:bg-gray-50 transition"
-                      >
-                        <td className="p-2">{size}</td>
-                        <td className="p-2 text-right">₹ {cost.toFixed(2)}</td>
-                      </tr>
-                    )
-                  )
-                ) : (
-                  <tr>
-                    <td colSpan="2" className="p-2 text-center text-gray-400">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+      {/* Gas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard title="Gas Consumption" label="Total Gas" value={totalGas} />
+        <SizeTableCard
+          title="Gas by Size"
+          data={gasBySize}
+          columns={[{ label: "Size" }, { label: "Gas", align: "text-right" }]}
+        />
       </div>
 
-      {/* Packing Cost */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-5">
-        {/* Total Packing Cost */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Packing Cost
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between mb-4">
-              <div>
-                <p className="text-xs text-gray-500">Total Packing Cost</p>
-                <p className="text-lg font-bold text-indigo-600">
-                  ₹ {packingCost.total ? packingCost.total.toFixed(2) : "0.00"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Electricity */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Electricity Cost"
+          label="Total Electricity"
+          value={electricityCost.total}
+          unit="₹"
+        />
+        <SizeTableCard
+          title="Electricity by Size"
+          data={electricityCost.sizeWise}
+          columns={[
+            { label: "Size" },
+            { label: "Cost (₹)", align: "text-right" },
+          ]}
+        />
+      </div>
 
-        {/* Packing Cost by Size */}
-        <Card className="shadow-md rounded-xl border-0 bg-white">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Packing Cost by Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600">
-                  <th className="p-2 text-left">Size</th>
-                  <th className="p-2 text-right">Cost (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(packingCost.sizeWise || {}).length > 0 ? (
-                  Object.entries(packingCost.sizeWise).map(
-                    ([size, cost], idx) => (
-                      <tr
-                        key={idx}
-                        className="border-t hover:bg-gray-50 transition"
-                      >
-                        <td className="p-2">{size}</td>
-                        <td className="p-2 text-right">₹ {cost.toFixed(2)}</td>
-                      </tr>
-                    )
-                  )
-                ) : (
-                  <tr>
-                    <td colSpan="2" className="p-2 text-center text-gray-400">
-                      No data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+      {/* Packing */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Packing Cost"
+          label="Total Packing"
+          value={packingCost.total}
+          unit="₹"
+        />
+        <SizeTableCard
+          title="Packing by Size"
+          data={packingCost.sizeWise}
+          columns={[
+            { label: "Size" },
+            { label: "Cost (₹)", align: "text-right" },
+          ]}
+        />
+      </div>
+
+      {/* Fixed */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Fixed Cost"
+          label="Total Fixed"
+          value={fixedCost.total}
+          unit="₹"
+        />
+        <SizeTableCard
+          title="Fixed Cost by Size"
+          data={fixedCost.sizeWise}
+          columns={[
+            { label: "Size" },
+            { label: "Cost (₹)", align: "text-right" },
+          ]}
+        />
+      </div>
+
+      {/* Ink */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <StatCard
+          title="Ink Cost"
+          label="Total Ink"
+          value={inkCost.total}
+          unit="₹"
+        />
+        <SizeTableCard
+          title="Ink Cost by Size"
+          data={inkCost.sizeWise}
+          columns={[
+            { label: "Size" },
+            { label: "Cost (₹)", align: "text-right" },
+          ]}
+        />
       </div>
     </div>
   );
