@@ -7,7 +7,7 @@ import { fetchFinalResultHistory } from "../calculations/finalresultHistory";
 export default function HomeScreen() {
   const [ceramicName, setCeramicName] = useState("");
   const [timeFilter, setTimeFilter] = useState(
-    () => localStorage.getItem("timeFilter") || "day"
+    () => localStorage.getItem("timeFilter") || "week"
   );
 
   useEffect(() => {

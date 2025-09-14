@@ -1,7 +1,6 @@
 import { fetchFinalResult } from "./finalresult";
-import { useState } from "react";
 
-export async function fetchFinalResultHistory(range = "day", applyDateFilter) {
+export async function fetchFinalResultHistory(range = "week", applyDateFilter) {
   const results = [];
   const today = new Date();
   let days = 7;

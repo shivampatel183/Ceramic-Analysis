@@ -59,7 +59,14 @@ function transformData(dailyResults, days) {
 
 export default function SizeCostChart({ fetchHistory, initialRange = "week" }) {
   const [history, setHistory] = useState([]);
-  const [range, setRange] = useState(initialRange);
+
+  // Validate and normalize the incoming initialRange so invalid/undefined values fall back to "week"
+  const VALID_RANGES = ["day", "week", "month", "all"];
+  const normalizedInitial =
+    typeof initialRange === "string" ? initialRange.toLowerCase() : "week";
+  const [range, setRange] = useState(
+    VALID_RANGES.includes(normalizedInitial) ? normalizedInitial : "week"
+  );
 
   useEffect(() => {
     let cancelled = false;
