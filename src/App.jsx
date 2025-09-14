@@ -103,15 +103,6 @@ const Sidebar = ({ onLogout, userId }) => (
     </nav>
 
     <button
-      onClick={() =>
-        window.open(`http://localhost:5000/cost-pdf/${userId}`, "_blank")
-      }
-      className="mt-10 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 rounded-lg shadow transition"
-    >
-      <Download size={16} /> Download PDF
-    </button>
-
-    <button
       onClick={onLogout}
       className="mt-auto flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white text-sm py-2 rounded-lg shadow transition"
     >
