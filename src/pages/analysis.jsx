@@ -18,7 +18,9 @@ import FinalResultTable from "../components/FinalResultTable";
 import { fetchFinalResult } from "../calculations/finalresult";
 
 export default function Analysis() {
-  const [timeFilter, setTimeFilter] = useState(() => localStorage.getItem("timeFilter") || "day");
+  const [timeFilter, setTimeFilter] = useState(
+    () => localStorage.getItem("timeFilter") || "day"
+  );
 
   // powder states
   const [totalPowder, setTotalPowder] = useState(0);
