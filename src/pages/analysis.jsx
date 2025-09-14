@@ -18,7 +18,7 @@ import FinalResultTable from "../components/FinalResultTable";
 import { fetchFinalResult } from "../calculations/finalresult";
 
 export default function Analysis() {
-  const [timeFilter, setTimeFilter] = useState("day");
+  const [timeFilter, setTimeFilter] = useState(() => localStorage.getItem("timeFilter") || "day");
 
   // powder states
   const [totalPowder, setTotalPowder] = useState(0);
@@ -86,57 +86,48 @@ export default function Analysis() {
   }
 
   useEffect(() => {
+    localStorage.setItem("timeFilter", timeFilter);
     (async () => {
-      // Powder
+      // ...existing code...
       const powder = await fetchPowderConsumption(timeFilter, applyDateFilter);
       setTotalPowder(powder.total);
       setPowderBySize(powder.sizeWise);
-
-      // Glaze
+      // ...existing code...
       const glaze = await fetchGlazeConsumption(timeFilter, applyDateFilter);
       setTotalGlazeLoss(glaze.totalLoss);
       setTotalGlazeConsumption(glaze.totalConsumption);
       setGlazeBySize(glaze.sizeWise);
-
-      // Net Production
+      // ...existing code...
       const net = await fetchNetProduction(timeFilter, applyDateFilter);
       setNetProduction(net);
-
       const size = await fetchProductionBySize(timeFilter, applyDateFilter);
       setSizeData(size);
-
-      // Fuel
+      // ...existing code...
       const fuel = await fetchFuelConsumption(timeFilter, applyDateFilter);
       setTotalFuel(fuel.totalFuel);
       setFuelBySize(fuel.fuelBySize);
       setCoalConsumptionKgPerTon(fuel.coalConsumptionKgPerTon);
-
-      // Gas
+      // ...existing code...
       const gas = await fetchGasConsumption(timeFilter, applyDateFilter);
       setTotalGas(gas.totalGas);
       setGasBySize(gas.gasBySize);
       setKclPerKg(gas.kclPerKg);
-
-      // Electricity
+      // ...existing code...
       const electricity = await fetchElectricityCost(
         timeFilter,
         applyDateFilter
       );
       setElectricityCost(electricity);
-
-      // Packing
+      // ...existing code...
       const packing = await fetchPackingCost(timeFilter, applyDateFilter);
       setPackingCost(packing);
-
-      // Fixed Cost
+      // ...existing code...
       const fixed = await fetchFixedCost(timeFilter, applyDateFilter);
       setFixedCost(fixed);
-
-      // Ink Cost
+      // ...existing code...
       const ink = await fetchInkCost(timeFilter, applyDateFilter);
       setInkCost(ink);
-
-      // Final Result
+      // ...existing code...
       const data = await fetchFinalResult(timeFilter, applyDateFilter);
       setFinalResult(data);
     })();
