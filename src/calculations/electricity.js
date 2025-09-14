@@ -93,8 +93,6 @@ export async function fetchElectricityCost(timeFilter, applyDateFilter) {
     if (!data || data.length === 0) {
       return { sizeWise: {}, total: 0 };
     }
-
-    console.log("✅ Electricity data:", data);
     return calculateElectricityCost(data);
   } catch (err) {
     console.error("Error fetching electricity cost:", err.message);

@@ -40,36 +40,32 @@ export default function DataTable() {
     );
   }
 
-  // ✅ get columns (remove id, user_id)
   const columns = Object.keys(rows[0]).filter(
     (col) => col !== "user_id" && col !== "id"
   );
 
-  // ✅ filter rows by search
   const filteredRows = rows.filter((row) =>
     Object.values(row).join(" ").toLowerCase().includes(search.toLowerCase())
   );
 
-  // ✅ sort by date
   const sortedRows = [...filteredRows].sort(
     (a, b) => new Date(a.date) - new Date(b.date)
   );
 
-  // ✅ helper to format date
   const formatDate = (value) => {
     if (!value) return "-";
     const d = new Date(value);
-    if (isNaN(d)) return value; // if not valid date, return as-is
+    if (isNaN(d)) return value;
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
-    return `${day}-${month}-${year}`; // DD-MM-YYYY
+    return `${day}-${month}-${year}`;
   };
 
   return (
-    <div className=" bg-gradient-to-br from-blue-50 to-blue-100">
-      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
+    <div className="bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen p-2 sm:p-6">
+      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-3 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-6 text-blue-700">
           Production Data Table
         </h2>
 
@@ -80,19 +76,19 @@ export default function DataTable() {
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto max-h-[70vh]">
-          <table className="min-w-full border-collapse">
+          <table className="min-w-full w-full border-collapse table-auto">
             <thead className="bg-blue-600 text-white sticky top-0 z-10">
               <tr>
                 {columns.map((col) => (
                   <th
                     key={col}
-                    className="px-6 py-3 text-sm font-semibold text-left border-b border-gray-200 min-w-[100px]"
+                    className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-left border-b border-gray-200 min-w-[120px] sm:min-w-[150px]"
                   >
                     {col.replace(/_/g, " ")}
                   </th>
@@ -110,7 +106,7 @@ export default function DataTable() {
                   {columns.map((col) => (
                     <td
                       key={col}
-                      className="px-6 py-3 text-sm border-b border-gray-200 min-w-[150px] whitespace-nowrap"
+                      className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm border-b border-gray-200 min-w-[120px] sm:min-w-[150px] break-words"
                     >
                       {col === "date"
                         ? formatDate(row[col])

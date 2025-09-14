@@ -1,4 +1,3 @@
-// components/FinalResultTable.jsx
 import React from "react";
 
 export default function FinalResultTable({ data }) {
@@ -10,20 +9,23 @@ export default function FinalResultTable({ data }) {
     "Gas",
     "Electricity",
     "Ink",
-    "Salary",
-    "Maintenance",
-    "Interest, Legal & Unlegal",
-    "Admin & Others",
-    "Depreciation",
+    "Fixed",
   ];
 
   // Example sizes
-  const sizes = ["150x900", "200x1200", "400x400", "Total"];
+  const sizes = [
+    "600x600",
+    "200x1000",
+    "150x900",
+    "200x1200",
+    "400x400",
+    "Total",
+  ];
 
   return (
     <div className="bg-white shadow-lg rounded-xl p-4 border border-gray-200 mb-8 overflow-x-auto">
       <h3 className="text-lg font-bold text-indigo-700 mb-4 text-center">
-        🏷 Final Cost Summary
+        Final Cost Summary
       </h3>
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -60,6 +62,19 @@ export default function FinalResultTable({ data }) {
                 className="border px-3 py-2 text-right text-indigo-700"
               >
                 {data?.Total?.[size] ?? "0.00"}
+              </td>
+            ))}
+          </tr>
+
+          {/* Sq. Feet Cost */}
+          <tr className="bg-yellow-100 font-bold">
+            <td className="border px-3 py-2">Sq. Feet Cost</td>
+            {sizes.map((size) => (
+              <td
+                key={`total-${size}`}
+                className="border px-3 py-2 text-right text-indigo-700"
+              >
+                {data?.SqFeetCost?.[size] ?? "0.00"}
               </td>
             ))}
           </tr>

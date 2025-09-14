@@ -82,7 +82,7 @@ export default function Analysis() {
       monthAgo.setMonth(today.getMonth() - 1);
       return query.gte("date", monthAgo.toISOString().split("T")[0]);
     }
-    return query; // all time
+    return query;
   }
 
   useEffect(() => {

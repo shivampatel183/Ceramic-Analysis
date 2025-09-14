@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
+import SizeCostChart from "../components/SizeCostChart";
+import { fetchFinalResultHistory } from "../calculations/finalresultHistory";
 
 export default function HomeScreen() {
   const [ceramicName, setCeramicName] = useState("");
@@ -24,6 +26,7 @@ export default function HomeScreen() {
           👋 Welcome, <span className="text-indigo-600">{ceramicName}</span>
         </h2>
       </div>
+      <SizeCostChart fetchHistory={fetchFinalResultHistory} initialDays={7} />
     </div>
   );
 }
