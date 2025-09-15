@@ -50,7 +50,8 @@ function transformData(dailyResults, days) {
       pointBackgroundColor: "#fff",
       pointBorderColor: ["#2563eb", "#dc2626", "#f59e42", "#059669", "#a21caf"][
         idx % 5
-
+      ],
+      tension: 0.35,
     };
   });
   return { labels, datasets };
