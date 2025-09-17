@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { fetchProductionBySize } from "../calculations/netProduction";
 
 const COLORS = [
@@ -69,13 +77,13 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
   });
 
   return (
-    <div className="bg-white shadow-lg rounded-2xl p-6 ml-8 w-full">
+    <div className="bg-white shadow-lg rounded-2xl p-6 ">
       <h3 className="text-lg font-bold mb-4">Size-wise Production</h3>
       <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} >
-            <XAxis dataKey={"date"}/>
-            <YAxis  />
+          <BarChart data={data}>
+            <XAxis dataKey={"date"} />
+            <YAxis />
             <Tooltip />
             <Legend />
             {allSizes.map((size) => (

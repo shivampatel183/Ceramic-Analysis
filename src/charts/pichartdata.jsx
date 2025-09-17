@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import CostTrendModal from "./CostTrendModal";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   PieChart,
   Pie,
@@ -37,7 +36,8 @@ export default function CostBreakdownPie({ range = "week" }) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
-      const rangeFilter = (query) => query.gte("date", dateStr).lte("date", dateStr);
+      const rangeFilter = (query) =>
+        query.gte("date", dateStr).lte("date", dateStr);
       const res = await fetchFinalResult("day", rangeFilter);
       trend.push({
         date: dateStr,
@@ -115,51 +115,114 @@ export default function CostBreakdownPie({ range = "week" }) {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, [range]);
+  // compute total for percent calculations in legend/labels
+  const total = useMemo(
+    () => data.reduce((s, d) => s + (Number(d.value) || 0), 0),
+    [data]
+  );
+
+  // Custom label to draw labels outside the pie to avoid overlap
+  const renderCustomizedLabel = ({
+    cx,
+    cy,
+    midAngle,
+    outerRadius,
+    percent,
+    index,
+  }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius + 16; // push label outside
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    const entry = data[index] || {};
+    const value = Number(entry.value) || 0;
+    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#374151"
+        textAnchor={x > cx ? "start" : "end"}
+        dominantBaseline="central"
+        style={{ fontSize: 12 }}
+      >
+        {`${entry.name} (${pct}%)`}
+      </text>
+    );
+  };
 
   return (
     <div className="p-6 bg-white shadow-lg rounded-2xl w-full">
       <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">
         Cost Breakdown
       </h2>
-      <div className="h-96 w-full">
-        <ResponsiveContainer>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              outerRadius="70%"
-              dataKey="value"
-              nameKey="name"
-              labelLine={false}
-              label={({ name, value }) => `${name}: ${value}`}
-              onClick={(_, idx) => {
-                if (data[idx]) handleSliceClick(data[idx].name);
-              }}
-              cursor="pointer"
-            >
-              {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
-              ))}
-            </Pie>
-      <CostTrendModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        data={trendData}
-        costName={selectedCost}
-      />
-            <Tooltip formatter={(value) => value.toFixed(2)} />
-            <Legend
-              layout="horizontal"
-              verticalAlign="bottom"
-              align="center"
-              wrapperStyle={{ marginTop: 10 }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+
+      {/* Layout: chart left, legend right on md+ screens; stacked on small screens */}
+      <div className="w-full flex flex-col md:flex-row items-start gap-4">
+        <div className="flex-1 h-80 md:h-96">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius="40%" // donut
+                outerRadius="65%"
+                paddingAngle={4} // separation between slices
+                minAngle={3} // ensure tiny slices are visible
+                dataKey="value"
+                nameKey="name"
+                labelLine={true}
+                label={renderCustomizedLabel}
+                onClick={(d, idx) => {
+                  if (data[idx]) handleSliceClick(data[idx].name);
+                }}
+                cursor="pointer"
+              >
+                {data.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+
+              <Tooltip formatter={(value) => Number(value).toFixed(2)} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Custom legend to the right to avoid in-chart label collisions */}
+        <div className="w-full md:w-56 flex-shrink-0">
+          <div className="flex flex-col gap-3">
+            {data.map((entry, idx) => {
+              const value = Number(entry.value) || 0;
+              const pct =
+                total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
+              return (
+                <button
+                  key={`legend-${idx}`}
+                  onClick={() => handleSliceClick(entry.name)}
+                  className="flex items-center justify-between w-full text-left p-2 rounded hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-4 h-4 rounded"
+                      style={{ background: COLORS[idx % COLORS.length] }}
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      {entry.name}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {value.toFixed(2)} ({pct}%)
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -37,7 +37,10 @@ export default function HomeScreen() {
       .single();
     if (data) {
       setCeramicName(data.ceramic_name);
-      localStorage.setItem("ceramic_name_cache", JSON.stringify({ ceramicName: data.ceramic_name }));
+      localStorage.setItem(
+        "ceramic_name_cache",
+        JSON.stringify({ ceramicName: data.ceramic_name })
+      );
     }
   }
 
@@ -70,9 +73,13 @@ export default function HomeScreen() {
 
       {/* Chart Card Section */}
       <FinalResultHistoryCard range={homeTimeFilter} />
-      <div className="my-8 flex">
-        <TotalBreakdownPie range={homeTimeFilter} />
-        <SizewiseStackedBarChart range={homeTimeFilter} />
+      <div className="my-8 flex flex-col md:flex-row gap-6">
+        <div className="md:basis-[60%]">
+          <TotalBreakdownPie range={homeTimeFilter} />
+        </div>
+        <div className="md:basis-[40%]">
+          <SizewiseStackedBarChart range={homeTimeFilter} />
+        </div>
       </div>
     </div>
   );
