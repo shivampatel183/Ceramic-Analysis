@@ -1,5 +1,7 @@
 // electricity.js
-import { supabase } from "../supabaseClient";
+// Note: supabase client is imported dynamically inside fetchElectricityCost so
+// the pure calculation function can be imported and tested without loading
+// the supabase client in test environments.
 
 const ELECTRICITY_RATE = 8.4;
 
@@ -28,15 +30,24 @@ export function calculateElectricityCost(data) {
       daily_electricity_units_use = 0,
     } = row;
 
+    // Coerce numeric inputs to numbers (they may come as strings)
+    const kiln = Number(kiln_entry_box) || 0;
+    const fired = Number(fired_loss_box) || 0;
+    const sizing = Number(sizing_fire_loss_boxes) || 0;
+    const units = Number(daily_electricity_units_use) || 0;
+
     if (!groupedByDay[date]) {
-      groupedByDay[date] = { rows: [], units: daily_electricity_units_use };
+      groupedByDay[date] = { rows: [], units: units };
+    } else {
+      // If multiple rows for same date provide units, sum them (safe merge)
+      groupedByDay[date].units = (groupedByDay[date].units || 0) + units;
     }
 
     groupedByDay[date].rows.push({
       size,
-      kiln_entry_box,
-      fired_loss_box,
-      sizing_fire_loss_boxes,
+      kiln_entry_box: kiln,
+      fired_loss_box: fired,
+      sizing_fire_loss_boxes: sizing,
     });
   });
 
@@ -69,12 +80,19 @@ export function calculateElectricityCost(data) {
     });
   });
 
-  return { sizeWise, total: totalCost };
+  // Round sizeWise values to 2 decimals for presentation
+  Object.keys(sizeWise).forEach((k) => {
+    sizeWise[k] = Number(sizeWise[k].toFixed(2));
+  });
+
+  return { sizeWise, total: Number(totalCost.toFixed(2)) };
 }
 
 // Fetch from Supabase
 export async function fetchElectricityCost(timeFilter, applyDateFilter) {
   try {
+    const { supabase } = await import("../supabaseClient.js");
+
     let query = supabase
       .from("production_data")
       .select(
