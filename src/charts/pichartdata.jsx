@@ -24,6 +24,20 @@ export default function CostBreakdownPie({ range = "week" }) {
   const [data, setData] = useState([]);
 
   useEffect(() => {
+    const cacheKey = `costBreakdownPie_${range}`;
+    const refreshFlag = localStorage.getItem("refreshData");
+    if (refreshFlag === "true") {
+      localStorage.removeItem(cacheKey);
+      localStorage.setItem("refreshData", "false");
+    }
+    const cache = localStorage.getItem(cacheKey);
+    if (cache && refreshFlag !== "true") {
+      try {
+        const parsed = JSON.parse(cache);
+        setData(parsed.data || []);
+        return;
+      } catch (e) {}
+    }
     const loadData = async () => {
       try {
         const today = new Date();
@@ -57,6 +71,7 @@ export default function CostBreakdownPie({ range = "week" }) {
           }));
 
           setData(breakdown);
+          localStorage.setItem(cacheKey, JSON.stringify({ data: breakdown }));
         }
       } catch (err) {
         console.error("Error fetching final result:", err);
@@ -64,6 +79,17 @@ export default function CostBreakdownPie({ range = "week" }) {
     };
 
     loadData();
+
+    // Listen for storage event to refresh chart if new data is added from another tab/page
+    function handleStorage(e) {
+      if (e.key === "refreshData" && e.newValue === "true") {
+        localStorage.removeItem(cacheKey);
+        loadData();
+        localStorage.setItem("refreshData", "false");
+      }
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, [range]);
 
   return (

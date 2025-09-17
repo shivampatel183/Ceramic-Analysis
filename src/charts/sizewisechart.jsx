@@ -23,11 +23,37 @@ export default function FinalResultHistoryCard({ range }) {
   const [data, setData] = useState([]);
 
   useEffect(() => {
+    const cacheKey = `finalResultHistory_${range}`;
+    const refreshFlag = localStorage.getItem("refreshData");
+    if (refreshFlag === "true") {
+      localStorage.removeItem(cacheKey);
+      localStorage.setItem("refreshData", "false");
+    }
+    const cache = localStorage.getItem(cacheKey);
+    if (cache && refreshFlag !== "true") {
+      try {
+        const parsed = JSON.parse(cache);
+        setData(parsed.data || []);
+        return;
+      } catch (e) {}
+    }
     async function load() {
       const history = await fetchFinalResultHistory(range);
       setData(history);
+      localStorage.setItem(cacheKey, JSON.stringify({ data: history }));
     }
     load();
+
+    // Listen for storage event to refresh chart if new data is added from another tab/page
+    function handleStorage(e) {
+      if (e.key === "refreshData" && e.newValue === "true") {
+        localStorage.removeItem(cacheKey);
+        load();
+        localStorage.setItem("refreshData", "false");
+      }
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, [range]);
 
   const allSizes = Array.from(

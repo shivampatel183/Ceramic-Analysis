@@ -4,14 +4,19 @@ import FinalResultHistoryCard from "../charts/sizewisechart";
 import TotalBreakdownPie from "../charts/pichartdata";
 export default function HomeScreen() {
   const [ceramicName, setCeramicName] = useState("");
-  const [timeFilter, setTimeFilter] = useState(
-    () => localStorage.getItem("timeFilter") || "week"
+  const [homeTimeFilter, setHomeTimeFilter] = useState(
+    () => localStorage.getItem("homeTimeFilter") || "week"
   );
 
   useEffect(() => {
     const cacheKey = "ceramic_name_cache";
+    const refreshFlag = localStorage.getItem("refreshData");
+    if (refreshFlag === "true") {
+      localStorage.removeItem(cacheKey);
+      localStorage.setItem("refreshData", "false");
+    }
     const cache = localStorage.getItem(cacheKey);
-    if (cache) {
+    if (cache && refreshFlag !== "true") {
       try {
         const parsed = JSON.parse(cache);
         setCeramicName(parsed.ceramicName || "");
@@ -33,8 +38,8 @@ export default function HomeScreen() {
   }
 
   useEffect(() => {
-    localStorage.setItem("timeFilter", timeFilter);
-  }, [timeFilter]);
+    localStorage.setItem("homeTimeFilter", homeTimeFilter);
+  }, [homeTimeFilter]);
 
   return (
     <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
@@ -48,8 +53,8 @@ export default function HomeScreen() {
             Range
           </label>
           <select
-            value={timeFilter}
-            onChange={(e) => setTimeFilter(e.target.value)}
+            value={homeTimeFilter}
+            onChange={(e) => setHomeTimeFilter(e.target.value)}
             className="flex-1 md:flex-none text-sm md:text-base border border-indigo-300 rounded-lg px-3 md:px-4 py-2 bg-white shadow focus:outline-none focus:ring-2 focus:ring-indigo-400"
           >
             <option value="day">Today</option>
@@ -60,9 +65,9 @@ export default function HomeScreen() {
       </div>
 
       {/* Chart Card Section */}
-      <FinalResultHistoryCard range={timeFilter} />
+      <FinalResultHistoryCard range={homeTimeFilter} />
       <div class="my-10 flex">
-        <TotalBreakdownPie range={timeFilter} />
+        <TotalBreakdownPie range={homeTimeFilter} />
       </div>
     </div>
   );

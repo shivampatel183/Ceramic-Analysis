@@ -18,8 +18,8 @@ import FinalResultTable from "../components/FinalResultTable";
 import { fetchFinalResult } from "../calculations/finalresult";
 
 export default function Analysis() {
-  const [timeFilter, setTimeFilter] = useState(
-    () => localStorage.getItem("timeFilter") || "day"
+  const [analysisTimeFilter, setAnalysisTimeFilter] = useState(
+    () => localStorage.getItem("analysisTimeFilter") || "day"
   );
 
   // powder states
@@ -88,8 +88,8 @@ export default function Analysis() {
   }
 
   useEffect(() => {
-    localStorage.setItem("timeFilter", timeFilter);
-    const cacheKey = `analysisData_${timeFilter}`;
+    localStorage.setItem("analysisTimeFilter", analysisTimeFilter);
+    const cacheKey = `analysisData_${analysisTimeFilter}`;
     const refreshFlag = localStorage.getItem("refreshData");
     if (refreshFlag === "true") {
       // Force refresh: clear cache and fetch new data
@@ -124,34 +124,34 @@ export default function Analysis() {
       }
     }
     (async () => {
-      const powder = await fetchPowderConsumption(timeFilter, applyDateFilter);
+      const powder = await fetchPowderConsumption(analysisTimeFilter, applyDateFilter);
       setTotalPowder(powder.total);
       setPowderBySize(powder.sizeWise);
-      const glaze = await fetchGlazeConsumption(timeFilter, applyDateFilter);
+      const glaze = await fetchGlazeConsumption(analysisTimeFilter, applyDateFilter);
       setTotalGlazeLoss(glaze.totalLoss);
       setTotalGlazeConsumption(glaze.totalConsumption);
       setGlazeBySize(glaze.sizeWise);
-      const net = await fetchNetProduction(timeFilter, applyDateFilter);
+      const net = await fetchNetProduction(analysisTimeFilter, applyDateFilter);
       setNetProduction(net);
-      const size = await fetchProductionBySize(timeFilter, applyDateFilter);
+      const size = await fetchProductionBySize(analysisTimeFilter, applyDateFilter);
       setSizeData(size);
-      const fuel = await fetchFuelConsumption(timeFilter, applyDateFilter);
+      const fuel = await fetchFuelConsumption(analysisTimeFilter, applyDateFilter);
       setTotalFuel(fuel.totalFuel);
       setFuelBySize(fuel.fuelBySize);
       setCoalConsumptionKgPerTon(fuel.coalConsumptionKgPerTon);
-      const gas = await fetchGasConsumption(timeFilter, applyDateFilter);
+      const gas = await fetchGasConsumption(analysisTimeFilter, applyDateFilter);
       setTotalGas(gas.totalGas);
       setGasBySize(gas.gasBySize);
       setKclPerKg(gas.kclPerKg);
-      const electricity = await fetchElectricityCost(timeFilter, applyDateFilter);
+      const electricity = await fetchElectricityCost(analysisTimeFilter, applyDateFilter);
       setElectricityCost(electricity);
-      const packing = await fetchPackingCost(timeFilter, applyDateFilter);
+      const packing = await fetchPackingCost(analysisTimeFilter, applyDateFilter);
       setPackingCost(packing);
-      const fixed = await fetchFixedCost(timeFilter, applyDateFilter);
+      const fixed = await fetchFixedCost(analysisTimeFilter, applyDateFilter);
       setFixedCost(fixed);
-      const ink = await fetchInkCost(timeFilter, applyDateFilter);
+      const ink = await fetchInkCost(analysisTimeFilter, applyDateFilter);
       setInkCost(ink);
-      const data = await fetchFinalResult(timeFilter, applyDateFilter);
+      const data = await fetchFinalResult(analysisTimeFilter, applyDateFilter);
       setFinalResult(data);
       // Save to cache
       localStorage.setItem(cacheKey, JSON.stringify({
@@ -175,7 +175,7 @@ export default function Analysis() {
         finalResult: data
       }));
     })();
-  }, [timeFilter]);
+  }, [analysisTimeFilter]);
 
   return (
     <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
@@ -186,8 +186,8 @@ export default function Analysis() {
         </h2>
 
         <select
-          value={timeFilter}
-          onChange={(e) => setTimeFilter(e.target.value)}
+          value={analysisTimeFilter}
+          onChange={(e) => setAnalysisTimeFilter(e.target.value)}
           className="text-sm font-medium border border-indigo-200 rounded px-4 py-2 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
         >
           <option value="day">Today</option>
