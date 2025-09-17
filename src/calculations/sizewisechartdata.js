@@ -14,9 +14,14 @@ export async function fetchFinalResultHistory(range = "week", applyDateFilter) {
     d.setDate(today.getDate() - i);
     const iso = d.toISOString().split("T")[0];
     const singleDayFilter = (query) => query.eq("date", iso);
+
     const res = await fetchFinalResult("day", singleDayFilter);
-    results.push({ date: iso, result: res });
+
+    results.push({
+      date: iso,
+      total: res?.Total ?? {},
+    });
   }
-  console.log("Final Result History:", results);
+
   return results;
 }

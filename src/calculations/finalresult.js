@@ -8,9 +8,6 @@ import { fetchFixedCost } from "./fixedcost";
 import { fetchInkCost } from "./inkcost";
 import { fetchProductionBySize, fetchNetProduction } from "./netProduction";
 
-/**
- * Collects and calculates all cost data into a final summary
- */
 export async function fetchFinalResult(timeFilter, applyDateFilter) {
   const [
     powderRaw,
