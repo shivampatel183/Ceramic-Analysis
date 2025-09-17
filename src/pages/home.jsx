@@ -49,7 +49,9 @@ export default function HomeScreen() {
 
       {/* Chart Card Section */}
       <FinalResultHistoryCard range={timeFilter} />
-      <TotalBreakdownPie range={timeFilter} />
+      <div class="my-10 flex">
+        <TotalBreakdownPie range={timeFilter} />
+      </div>
     </div>
   );
 }
