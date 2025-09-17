@@ -28,9 +28,12 @@ export default function HomeScreen() {
   }, []);
 
   async function fetchCeramicName() {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user || !user.id) return;
     const { data } = await supabase
       .from("profiles")
       .select("ceramic_name")
+      .eq("id", user.id)
       .single();
     if (data) {
       setCeramicName(data.ceramic_name);
@@ -67,7 +70,7 @@ export default function HomeScreen() {
 
       {/* Chart Card Section */}
       <FinalResultHistoryCard range={homeTimeFilter} />
-      <div className="my-10 flex">
+      <div className="my-8 flex">
         <TotalBreakdownPie range={homeTimeFilter} />
         <SizewiseStackedBarChart range={homeTimeFilter} />
       </div>

@@ -69,7 +69,7 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
   });
 
   return (
-    <div className="bg-white shadow-lg rounded-2xl p-6 ml-10 w-full">
+    <div className="bg-white shadow-lg rounded-2xl p-6 ml-8 w-full">
       <h3 className="text-lg font-bold mb-4">Size-wise Production</h3>
       <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
