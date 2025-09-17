@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import FinalResultHistoryCard from "../charts/sizewisechart";
 import TotalBreakdownPie from "../charts/pichartdata";
+import SizewiseStackedBarChart from "../charts/SizewiseStackedBarChart";
 export default function HomeScreen() {
   const [ceramicName, setCeramicName] = useState("");
   const [homeTimeFilter, setHomeTimeFilter] = useState(
@@ -66,8 +67,9 @@ export default function HomeScreen() {
 
       {/* Chart Card Section */}
       <FinalResultHistoryCard range={homeTimeFilter} />
-      <div class="my-10 flex">
+      <div className="my-10 flex">
         <TotalBreakdownPie range={homeTimeFilter} />
+        <SizewiseStackedBarChart range={homeTimeFilter} />
       </div>
     </div>
   );

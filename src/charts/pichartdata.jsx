@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import CostTrendModal from "./CostTrendModal";
 import {
   PieChart,
   Pie,
@@ -22,6 +23,29 @@ const COLORS = [
 
 export default function CostBreakdownPie({ range = "week" }) {
   const [data, setData] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [trendData, setTrendData] = useState([]);
+  const [selectedCost, setSelectedCost] = useState("");
+  // Drill-down: fetch cost trend for selected cost
+  async function handleSliceClick(costName) {
+    setSelectedCost(costName);
+    setModalOpen(true);
+    // Fetch trend for last 30 days
+    const today = new Date();
+    const trend = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const dateStr = date.toISOString().split("T")[0];
+      const rangeFilter = (query) => query.gte("date", dateStr).lte("date", dateStr);
+      const res = await fetchFinalResult("day", rangeFilter);
+      trend.push({
+        date: dateStr,
+        value: parseFloat(res?.[costName]?.Total || 0),
+      });
+    }
+    setTrendData(trend);
+  }
 
   useEffect(() => {
     const cacheKey = `costBreakdownPie_${range}`;
@@ -93,7 +117,7 @@ export default function CostBreakdownPie({ range = "week" }) {
   }, [range]);
 
   return (
-    <div className="p-6 bg-white shadow-lg rounded-2xl w-full max-w-xl">
+    <div className="p-6 bg-white shadow-lg rounded-2xl w-full">
       <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">
         Cost Breakdown
       </h2>
@@ -109,6 +133,10 @@ export default function CostBreakdownPie({ range = "week" }) {
               nameKey="name"
               labelLine={false}
               label={({ name, value }) => `${name}: ${value}`}
+              onClick={(_, idx) => {
+                if (data[idx]) handleSliceClick(data[idx].name);
+              }}
+              cursor="pointer"
             >
               {data.map((entry, index) => (
                 <Cell
@@ -117,6 +145,12 @@ export default function CostBreakdownPie({ range = "week" }) {
                 />
               ))}
             </Pie>
+      <CostTrendModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        data={trendData}
+        costName={selectedCost}
+      />
             <Tooltip formatter={(value) => value.toFixed(2)} />
             <Legend
               layout="horizontal"

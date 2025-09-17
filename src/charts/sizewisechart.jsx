@@ -17,6 +17,12 @@ const COLORS = [
   "#F59E0B",
   "#3B82F6",
   "#8B5CF6",
+  "#FFBB28",
+  "#FF8042",
+  "#A020F0",
+  "#FF6384",
+  "#36A2EB",
+  "#4BC0C0",
 ];
 
 export default function FinalResultHistoryCard({ range }) {
@@ -62,7 +68,13 @@ export default function FinalResultHistoryCard({ range }) {
         Object.keys(entry.total || {}).filter((k) => k !== "Total")
       )
     )
-  );
+  ).sort();
+
+  // Consistent color mapping for sizes
+  const sizeColorMap = {};
+  allSizes.forEach((size, idx) => {
+    sizeColorMap[size] = COLORS[idx % COLORS.length];
+  });
 
   const chartData = data.map((entry) => {
     const row = { date: entry.date };
@@ -82,12 +94,12 @@ export default function FinalResultHistoryCard({ range }) {
             <YAxis />
             <Tooltip />
             <Legend />
-            {allSizes.map((size, idx) => (
+            {allSizes.map((size) => (
               <Line
                 key={size}
                 type="monotone"
                 dataKey={size}
-                stroke={COLORS[idx % COLORS.length]}
+                stroke={sizeColorMap[size]}
                 strokeWidth={2}
                 dot={false}
               />
