@@ -9,6 +9,15 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
+    const cacheKey = "ceramic_name_cache";
+    const cache = localStorage.getItem(cacheKey);
+    if (cache) {
+      try {
+        const parsed = JSON.parse(cache);
+        setCeramicName(parsed.ceramicName || "");
+        return;
+      } catch (e) {}
+    }
     fetchCeramicName();
   }, []);
 
@@ -17,7 +26,10 @@ export default function HomeScreen() {
       .from("profiles")
       .select("ceramic_name")
       .single();
-    if (data) setCeramicName(data.ceramic_name);
+    if (data) {
+      setCeramicName(data.ceramic_name);
+      localStorage.setItem("ceramic_name_cache", JSON.stringify({ ceramicName: data.ceramic_name }));
+    }
   }
 
   useEffect(() => {

@@ -7,6 +7,24 @@ export default function DataTable() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    const cacheKey = "production_data_cache";
+    const refreshFlag = localStorage.getItem("refreshData");
+    if (refreshFlag === "true") {
+      // Force refresh: clear cache and fetch new data
+      localStorage.removeItem(cacheKey);
+      localStorage.setItem("refreshData", "false");
+    }
+    const cache = localStorage.getItem(cacheKey);
+    if (cache && refreshFlag !== "true") {
+      try {
+        const parsed = JSON.parse(cache);
+        setRows(parsed.rows || []);
+        setLoading(false);
+        return;
+      } catch (e) {
+        // ignore corrupted cache
+      }
+    }
     const fetchData = async () => {
       try {
         const { data, error } = await supabase
@@ -14,13 +32,13 @@ export default function DataTable() {
           .select("*");
         if (error) throw error;
         setRows(data || []);
+        localStorage.setItem(cacheKey, JSON.stringify({ rows: data || [] }));
       } catch (err) {
         console.error("❌ Error fetching data:", err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -64,7 +82,7 @@ export default function DataTable() {
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen p-2 sm:p-6">
-      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-3 sm:p-6">
+      <div className="mx-auto bg-white rounded-xl shadow-lg p-3 sm:p-6">
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-6 text-blue-700">
           Production Data Table
         </h2>

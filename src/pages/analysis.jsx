@@ -89,49 +89,91 @@ export default function Analysis() {
 
   useEffect(() => {
     localStorage.setItem("timeFilter", timeFilter);
+    const cacheKey = `analysisData_${timeFilter}`;
+    const refreshFlag = localStorage.getItem("refreshData");
+    if (refreshFlag === "true") {
+      // Force refresh: clear cache and fetch new data
+      localStorage.removeItem(cacheKey);
+      localStorage.setItem("refreshData", "false");
+    }
+    const cache = localStorage.getItem(cacheKey);
+    if (cache && refreshFlag !== "true") {
+      try {
+        const parsed = JSON.parse(cache);
+        setTotalPowder(parsed.totalPowder);
+        setPowderBySize(parsed.powderBySize);
+        setTotalGlazeLoss(parsed.totalGlazeLoss);
+        setTotalGlazeConsumption(parsed.totalGlazeConsumption);
+        setGlazeBySize(parsed.glazeBySize);
+        setNetProduction(parsed.netProduction);
+        setSizeData(parsed.sizeData);
+        setTotalFuel(parsed.totalFuel);
+        setFuelBySize(parsed.fuelBySize);
+        setCoalConsumptionKgPerTon(parsed.coalConsumptionKgPerTon);
+        setTotalGas(parsed.totalGas);
+        setGasBySize(parsed.gasBySize);
+        setKclPerKg(parsed.kclPerKg);
+        setElectricityCost(parsed.electricityCost);
+        setPackingCost(parsed.packingCost);
+        setFixedCost(parsed.fixedCost);
+        setInkCost(parsed.inkCost);
+        setFinalResult(parsed.finalResult);
+        return;
+      } catch (e) {
+        // If cache is corrupted, ignore and fetch fresh
+      }
+    }
     (async () => {
-      // ...existing code...
       const powder = await fetchPowderConsumption(timeFilter, applyDateFilter);
       setTotalPowder(powder.total);
       setPowderBySize(powder.sizeWise);
-      // ...existing code...
       const glaze = await fetchGlazeConsumption(timeFilter, applyDateFilter);
       setTotalGlazeLoss(glaze.totalLoss);
       setTotalGlazeConsumption(glaze.totalConsumption);
       setGlazeBySize(glaze.sizeWise);
-      // ...existing code...
       const net = await fetchNetProduction(timeFilter, applyDateFilter);
       setNetProduction(net);
       const size = await fetchProductionBySize(timeFilter, applyDateFilter);
       setSizeData(size);
-      // ...existing code...
       const fuel = await fetchFuelConsumption(timeFilter, applyDateFilter);
       setTotalFuel(fuel.totalFuel);
       setFuelBySize(fuel.fuelBySize);
       setCoalConsumptionKgPerTon(fuel.coalConsumptionKgPerTon);
-      // ...existing code...
       const gas = await fetchGasConsumption(timeFilter, applyDateFilter);
       setTotalGas(gas.totalGas);
       setGasBySize(gas.gasBySize);
       setKclPerKg(gas.kclPerKg);
-      // ...existing code...
-      const electricity = await fetchElectricityCost(
-        timeFilter,
-        applyDateFilter
-      );
+      const electricity = await fetchElectricityCost(timeFilter, applyDateFilter);
       setElectricityCost(electricity);
-      // ...existing code...
       const packing = await fetchPackingCost(timeFilter, applyDateFilter);
       setPackingCost(packing);
-      // ...existing code...
       const fixed = await fetchFixedCost(timeFilter, applyDateFilter);
       setFixedCost(fixed);
-      // ...existing code...
       const ink = await fetchInkCost(timeFilter, applyDateFilter);
       setInkCost(ink);
-      // ...existing code...
       const data = await fetchFinalResult(timeFilter, applyDateFilter);
       setFinalResult(data);
+      // Save to cache
+      localStorage.setItem(cacheKey, JSON.stringify({
+        totalPowder: powder.total,
+        powderBySize: powder.sizeWise,
+        totalGlazeLoss: glaze.totalLoss,
+        totalGlazeConsumption: glaze.totalConsumption,
+        glazeBySize: glaze.sizeWise,
+        netProduction: net,
+        sizeData: size,
+        totalFuel: fuel.totalFuel,
+        fuelBySize: fuel.fuelBySize,
+        coalConsumptionKgPerTon: fuel.coalConsumptionKgPerTon,
+        totalGas: gas.totalGas,
+        gasBySize: gas.gasBySize,
+        kclPerKg: gas.kclPerKg,
+        electricityCost: electricity,
+        packingCost: packing,
+        fixedCost: fixed,
+        inkCost: ink,
+        finalResult: data
+      }));
     })();
   }, [timeFilter]);
 

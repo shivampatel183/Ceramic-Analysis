@@ -56,6 +56,16 @@ const Profile = ({ user }) => {
   });
 
   useEffect(() => {
+    const cacheKey = `profile_cache_${user.id}`;
+    const cache = localStorage.getItem(cacheKey);
+    if (cache) {
+      try {
+        const parsed = JSON.parse(cache);
+        setProfile(parsed.profile);
+        setLoading(false);
+        return;
+      } catch (e) {}
+    }
     getProfile();
   }, []);
 
@@ -71,6 +81,7 @@ const Profile = ({ user }) => {
       if (error) throw error;
       if (data) {
         setProfile(data);
+        localStorage.setItem(`profile_cache_${user.id}`, JSON.stringify({ profile: data }));
       }
     } catch (error) {
       console.error("Error loading profile:", error.message);
@@ -89,6 +100,8 @@ const Profile = ({ user }) => {
 
       if (error) throw error;
       setEditing(false);
+      // Update cache after successful update
+      localStorage.setItem(`profile_cache_${user.id}`, JSON.stringify({ profile }));
     } catch (error) {
       console.error("Error updating profile:", error.message);
     } finally {
