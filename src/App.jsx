@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Home,
-  BarChart3,
-  Database,
-  User,
-  Download,
-  LogOut,
-} from "lucide-react";
+import { Home, BarChart3, Database, User, LogOut } from "lucide-react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -178,13 +171,12 @@ export default function App() {
             element={user ? <Data /> : <Navigate to="/login" />}
           />
           <Route
-            path="/"
-            element={<Navigate to={user ? "/home" : "/login"} />}
-          />
-          import Analysis from "./pages/analysis";
-          <Route
             path="/analysis"
             element={user ? <Analysis /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/"
+            element={<Navigate to={user ? "/home" : "/login"} />}
           />
         </Routes>
       </div>
