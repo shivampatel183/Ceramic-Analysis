@@ -4,6 +4,8 @@ import { supabase } from "../supabaseClient";
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -23,6 +25,32 @@ const Login = ({ setUser }) => {
       });
     }
     setLoading(false);
+  };
+
+  // Compatibility wrapper for sending password reset email across supabase-js versions
+  const sendResetEmail = async (emailAddress) => {
+    // v2 method
+    if (
+      supabase.auth &&
+      typeof supabase.auth.resetPasswordForEmail === "function"
+    ) {
+      return await supabase.auth.resetPasswordForEmail(emailAddress, {
+        redirectTo: window.location.origin + "/login",
+      });
+    }
+
+    // fallback: older client may expose auth.api.resetPasswordForEmail
+    if (
+      supabase.auth &&
+      supabase.auth.api &&
+      typeof supabase.auth.api.resetPasswordForEmail === "function"
+    ) {
+      return await supabase.auth.api.resetPasswordForEmail(emailAddress);
+    }
+
+    throw new Error(
+      "Supabase reset password API not available in this client version"
+    );
   };
 
   return (
@@ -61,6 +89,83 @@ const Login = ({ setUser }) => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          <div className="flex justify-between items-center mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                setShowReset((s) => !s);
+                setResetEmail(email || "");
+              }}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          {showReset && (
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-6">
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Enter your account email to receive reset instructions
+              </label>
+              <input
+                type="email"
+                className="w-full border border-gray-300 rounded-lg p-2 mb-3"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!resetEmail) {
+                      alert("Please enter your email");
+                      return;
+                    }
+                    try {
+                      setLoading(true);
+                      // Use compatibility wrapper
+                      const result = await sendResetEmail(resetEmail);
+                      // supabase returns either { data, error } or an error object depending on version
+                      if (result?.error) {
+                        console.error("Reset error:", result.error);
+                        alert(
+                          "Failed to send reset email: " + result.error.message
+                        );
+                      } else if (
+                        result?.error === undefined &&
+                        result?.data === undefined
+                      ) {
+                        // Some versions may throw or return nothing on success
+                        alert(
+                          "Password reset email process initiated. Check your inbox."
+                        );
+                        setShowReset(false);
+                      } else {
+                        alert("Password reset email sent. Check your inbox.");
+                        setShowReset(false);
+                      }
+                    } catch (err) {
+                      console.error(err);
+                      alert("Unexpected error: " + err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="bg-blue-600 text-white px-3 py-2 rounded-lg"
+                >
+                  Send reset email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReset(false)}
+                  className="px-3 py-2 rounded-lg border"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           <button
             type="submit"
             disabled={loading}
