@@ -25,7 +25,8 @@ const COLORS = [
   "#4BC0C0",
 ];
 
-export default function SizewiseStackedBarChart({ range = "week" }) {
+export default function SizewiseGroupedBarChart({ range = "week" }) {
+  // Renamed for clarity
   const [data, setData] = useState([]);
   const [allSizes, setAllSizes] = useState([]);
 
@@ -37,7 +38,7 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
       if (range === "day") days = 1;
       else if (range === "week") days = 7;
       else if (range === "month") days = 30;
-      else if (range === "all") days = 90;
+      else if (range === "all") days = 90; // Consider a larger number for "all" or remove it if not needed
 
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - days + 1);
@@ -46,6 +47,7 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
 
       // fetchProductionBySize expects (filter, applyDateFilter)
       const sizeData = await fetchProductionBySize(range, rangeFilter);
+
       // Group by date
       const grouped = {};
       const sizesSet = new Set();
@@ -54,8 +56,10 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
         if (!grouped[row.date]) grouped[row.date] = {};
         grouped[row.date][row.size] = row.total;
       });
+
       const allSizesArr = Array.from(sizesSet).sort();
       setAllSizes(allSizesArr);
+
       // Build chart data
       const chartData = Object.entries(grouped).map(([date, sizeObj]) => {
         const row = { date };
@@ -64,12 +68,14 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
         });
         return row;
       });
+
       // Sort by date ascending
       chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
       setData(chartData);
     }
     load();
   }, [range]);
+
   // Consistent color mapping for sizes (must be in render scope)
   const sizeColorMap = {};
   allSizes.forEach((size, idx) => {
@@ -78,10 +84,15 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
 
   return (
     <div className="bg-white shadow-lg rounded-2xl p-6 ">
-      <h3 className="text-lg font-bold mb-4">Size-wise Production</h3>
+      <h3 className="text-lg font-bold mb-4">Size-wise Production (Grouped)</h3>{" "}
+      {/* Updated title */}
       <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart
+            data={data}
+            barCategoryGap="10%" // Adjust gap between groups of bars
+            barGap={2} // Adjust gap between bars within a group
+          >
             <XAxis dataKey={"date"} />
             <YAxis />
             <Tooltip />
@@ -90,7 +101,7 @@ export default function SizewiseStackedBarChart({ range = "week" }) {
               <Bar
                 key={size}
                 dataKey={size}
-                stackId="a"
+                // Removed stackId="a" to make them grouped instead of stacked
                 fill={sizeColorMap[size]}
                 name={size}
               />

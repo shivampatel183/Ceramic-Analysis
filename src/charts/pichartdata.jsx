@@ -1,12 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { fetchFinalResult } from "../calculations/finalresult";
 
 const COLORS = [
@@ -25,11 +18,12 @@ export default function CostBreakdownPie({ range = "week" }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [trendData, setTrendData] = useState([]);
   const [selectedCost, setSelectedCost] = useState("");
-  // Drill-down: fetch cost trend for selected cost
+
+  // 🧠 Handle slice click (drill-down 30-day trend)
   async function handleSliceClick(costName) {
     setSelectedCost(costName);
     setModalOpen(true);
-    // Fetch trend for last 30 days
+
     const today = new Date();
     const trend = [];
     for (let i = 29; i >= 0; i--) {
@@ -47,21 +41,8 @@ export default function CostBreakdownPie({ range = "week" }) {
     setTrendData(trend);
   }
 
+  // 🚀 Always fetch fresh data from Supabase (no localStorage)
   useEffect(() => {
-    const cacheKey = `costBreakdownPie_${range}`;
-    const refreshFlag = localStorage.getItem("refreshData");
-    if (refreshFlag === "true") {
-      localStorage.removeItem(cacheKey);
-      localStorage.setItem("refreshData", "false");
-    }
-    const cache = localStorage.getItem(cacheKey);
-    if (cache && refreshFlag !== "true") {
-      try {
-        const parsed = JSON.parse(cache);
-        setData(parsed.data || []);
-        return;
-      } catch (e) {}
-    }
     const loadData = async () => {
       try {
         const today = new Date();
@@ -93,9 +74,7 @@ export default function CostBreakdownPie({ range = "week" }) {
             name: key,
             value: parseFloat(res[key]?.Total || 0),
           }));
-
           setData(breakdown);
-          localStorage.setItem(cacheKey, JSON.stringify({ data: breakdown }));
         }
       } catch (err) {
         console.error("Error fetching final result:", err);
@@ -103,35 +82,17 @@ export default function CostBreakdownPie({ range = "week" }) {
     };
 
     loadData();
-
-    // Listen for storage event to refresh chart if new data is added from another tab/page
-    function handleStorage(e) {
-      if (e.key === "refreshData" && e.newValue === "true") {
-        localStorage.removeItem(cacheKey);
-        loadData();
-        localStorage.setItem("refreshData", "false");
-      }
-    }
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
   }, [range]);
-  // compute total for percent calculations in legend/labels
+
   const total = useMemo(
     () => data.reduce((s, d) => s + (Number(d.value) || 0), 0),
     [data]
   );
 
-  // Custom label to draw labels outside the pie to avoid overlap
-  const renderCustomizedLabel = ({
-    cx,
-    cy,
-    midAngle,
-    outerRadius,
-    percent,
-    index,
-  }) => {
+  // 🎯 Custom label renderer for clean outer labels
+  const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, index }) => {
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 16; // push label outside
+    const radius = outerRadius + 16;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     const entry = data[index] || {};
@@ -158,7 +119,6 @@ export default function CostBreakdownPie({ range = "week" }) {
         Cost Breakdown
       </h2>
 
-      {/* Layout: chart left, legend right on md+ screens; stacked on small screens */}
       <div className="w-full flex flex-col md:flex-row items-start gap-4">
         <div className="flex-1 h-80 md:h-96">
           <ResponsiveContainer width="100%" height="100%">
@@ -167,10 +127,10 @@ export default function CostBreakdownPie({ range = "week" }) {
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius="40%" // donut
+                innerRadius="40%"
                 outerRadius="65%"
-                paddingAngle={4} // separation between slices
-                minAngle={3} // ensure tiny slices are visible
+                paddingAngle={4}
+                minAngle={3}
                 dataKey="value"
                 nameKey="name"
                 labelLine={true}
@@ -187,13 +147,12 @@ export default function CostBreakdownPie({ range = "week" }) {
                   />
                 ))}
               </Pie>
-
               <Tooltip formatter={(value) => Number(value).toFixed(2)} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Custom legend to the right to avoid in-chart label collisions */}
+        {/* Legend Section */}
         <div className="w-full md:w-56 flex-shrink-0">
           <div className="flex flex-col gap-3">
             {data.map((entry, idx) => {

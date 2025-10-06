@@ -10,20 +10,6 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    const cacheKey = "ceramic_name_cache";
-    const refreshFlag = localStorage.getItem("refreshData");
-    if (refreshFlag === "true") {
-      localStorage.removeItem(cacheKey);
-      localStorage.setItem("refreshData", "false");
-    }
-    const cache = localStorage.getItem(cacheKey);
-    if (cache && refreshFlag !== "true") {
-      try {
-        const parsed = JSON.parse(cache);
-        setCeramicName(parsed.ceramicName || "");
-        return;
-      } catch (e) {}
-    }
     fetchCeramicName();
   }, []);
 
@@ -37,16 +23,8 @@ export default function HomeScreen() {
       .single();
     if (data) {
       setCeramicName(data.ceramic_name);
-      localStorage.setItem(
-        "ceramic_name_cache",
-        JSON.stringify({ ceramicName: data.ceramic_name })
-      );
     }
   }
-
-  useEffect(() => {
-    localStorage.setItem("homeTimeFilter", homeTimeFilter);
-  }, [homeTimeFilter]);
 
   return (
     <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">

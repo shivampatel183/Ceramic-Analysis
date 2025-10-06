@@ -89,63 +89,51 @@ export default function Analysis() {
 
   useEffect(() => {
     localStorage.setItem("analysisTimeFilter", analysisTimeFilter);
-    const cacheKey = `analysisData_${analysisTimeFilter}`;
-    const refreshFlag = localStorage.getItem("refreshData");
-    if (refreshFlag === "true") {
-      // Force refresh: clear cache and fetch new data
-      localStorage.removeItem(cacheKey);
-      localStorage.setItem("refreshData", "false");
-    }
-    const cache = localStorage.getItem(cacheKey);
-    if (cache && refreshFlag !== "true") {
-      try {
-        const parsed = JSON.parse(cache);
-        setTotalPowder(parsed.totalPowder);
-        setPowderBySize(parsed.powderBySize);
-        setTotalGlazeLoss(parsed.totalGlazeLoss);
-        setTotalGlazeConsumption(parsed.totalGlazeConsumption);
-        setGlazeBySize(parsed.glazeBySize);
-        setNetProduction(parsed.netProduction);
-        setSizeData(parsed.sizeData);
-        setTotalFuel(parsed.totalFuel);
-        setFuelBySize(parsed.fuelBySize);
-        setCoalConsumptionKgPerTon(parsed.coalConsumptionKgPerTon);
-        setTotalGas(parsed.totalGas);
-        setGasBySize(parsed.gasBySize);
-        setKclPerKg(parsed.kclPerKg);
-        setElectricityCost(parsed.electricityCost);
-        setPackingCost(parsed.packingCost);
-        setFixedCost(parsed.fixedCost);
-        setInkCost(parsed.inkCost);
-        setFinalResult(parsed.finalResult);
-        return;
-      } catch (e) {
-        // If cache is corrupted, ignore and fetch fresh
-      }
-    }
+
     (async () => {
-      const powder = await fetchPowderConsumption(analysisTimeFilter, applyDateFilter);
+      const powder = await fetchPowderConsumption(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setTotalPowder(powder.total);
       setPowderBySize(powder.sizeWise);
-      const glaze = await fetchGlazeConsumption(analysisTimeFilter, applyDateFilter);
+      const glaze = await fetchGlazeConsumption(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setTotalGlazeLoss(glaze.totalLoss);
       setTotalGlazeConsumption(glaze.totalConsumption);
       setGlazeBySize(glaze.sizeWise);
       const net = await fetchNetProduction(analysisTimeFilter, applyDateFilter);
       setNetProduction(net);
-      const size = await fetchProductionBySize(analysisTimeFilter, applyDateFilter);
+      const size = await fetchProductionBySize(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setSizeData(size);
-      const fuel = await fetchFuelConsumption(analysisTimeFilter, applyDateFilter);
+      const fuel = await fetchFuelConsumption(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setTotalFuel(fuel.totalFuel);
       setFuelBySize(fuel.fuelBySize);
       setCoalConsumptionKgPerTon(fuel.coalConsumptionKgPerTon);
-      const gas = await fetchGasConsumption(analysisTimeFilter, applyDateFilter);
+      const gas = await fetchGasConsumption(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setTotalGas(gas.totalGas);
       setGasBySize(gas.gasBySize);
       setKclPerKg(gas.kclPerKg);
-      const electricity = await fetchElectricityCost(analysisTimeFilter, applyDateFilter);
+      const electricity = await fetchElectricityCost(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setElectricityCost(electricity);
-      const packing = await fetchPackingCost(analysisTimeFilter, applyDateFilter);
+      const packing = await fetchPackingCost(
+        analysisTimeFilter,
+        applyDateFilter
+      );
       setPackingCost(packing);
       const fixed = await fetchFixedCost(analysisTimeFilter, applyDateFilter);
       setFixedCost(fixed);
@@ -154,26 +142,6 @@ export default function Analysis() {
       const data = await fetchFinalResult(analysisTimeFilter, applyDateFilter);
       setFinalResult(data);
       // Save to cache
-      localStorage.setItem(cacheKey, JSON.stringify({
-        totalPowder: powder.total,
-        powderBySize: powder.sizeWise,
-        totalGlazeLoss: glaze.totalLoss,
-        totalGlazeConsumption: glaze.totalConsumption,
-        glazeBySize: glaze.sizeWise,
-        netProduction: net,
-        sizeData: size,
-        totalFuel: fuel.totalFuel,
-        fuelBySize: fuel.fuelBySize,
-        coalConsumptionKgPerTon: fuel.coalConsumptionKgPerTon,
-        totalGas: gas.totalGas,
-        gasBySize: gas.gasBySize,
-        kclPerKg: gas.kclPerKg,
-        electricityCost: electricity,
-        packingCost: packing,
-        fixedCost: fixed,
-        inkCost: ink,
-        finalResult: data
-      }));
     })();
   }, [analysisTimeFilter]);
 

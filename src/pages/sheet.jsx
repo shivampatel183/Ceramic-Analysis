@@ -74,22 +74,6 @@ export default function Sheet() {
         console.error("❌ Insert error:", error.message);
         alert("Insert failed: " + error.message);
       } else {
-        // Clear all relevant cache keys so other pages will refetch
-        localStorage.removeItem("production_data_cache");
-        localStorage.removeItem("analysisData_day");
-        localStorage.removeItem("analysisData_week");
-        localStorage.removeItem("analysisData_month");
-        localStorage.removeItem("analysisData_all");
-        // Clear chart caches for all ranges
-        localStorage.removeItem("finalResultHistory_day");
-        localStorage.removeItem("finalResultHistory_week");
-        localStorage.removeItem("finalResultHistory_month");
-        localStorage.removeItem("finalResultHistory_all");
-        localStorage.removeItem("costBreakdownPie_day");
-        localStorage.removeItem("costBreakdownPie_week");
-        localStorage.removeItem("costBreakdownPie_month");
-        localStorage.removeItem("costBreakdownPie_all");
-        // Set refresh flag for other pages
         localStorage.setItem("refreshData", "true");
         alert("Data inserted successfully!");
         setFormData({
