@@ -79,6 +79,19 @@ const Sidebar = ({ onLogout, userId }) => (
       >
         <BarChart3 size={18} /> Analysis
       </NavLink>
+      <NavLink
+        to="/usermanagement"
+        className={({ isActive }) =>
+          `flex items-center gap-3 p-2 rounded-lg transition 
+           ${
+             isActive
+               ? "bg-blue-200 text-blue-700"
+               : "hover:bg-blue-100 hover:text-blue-600"
+           }`
+        }
+      >
+        <User size={18} /> User Management
+      </NavLink>
 
       <NavLink
         to="/profile"
