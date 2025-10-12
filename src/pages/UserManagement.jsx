@@ -11,43 +11,21 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
+  // --- REVISED AND CORRECTED fetchUsers function ---
   const fetchUsers = async () => {
     try {
-      // Get current admin user
-      const {
-        data: { user: adminUser },
-        error: adminError,
-      } = await supabase.auth.getUser();
-      if (adminError) throw adminError;
-      if (!adminUser) throw new Error("Admin not logged in.");
+      // Securely call the 'list-users' Edge Function you created
+      const { data, error } = await supabase.functions.invoke("list-users");
 
-      // Fetch roles created by this admin
-      const { data: rolesData, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id, role, department")
-        .eq("created_by", adminUser.id);
+      if (error) {
+        throw error;
+      }
 
-      if (rolesError) throw rolesError;
-
-      // Fetch all users to map emails
-      const { data: allUsers, error: listError } =
-        await supabase.auth.admin.listUsers();
-      if (listError) throw listError;
-
-      // Combine role data with user emails
-      const formattedUsers = rolesData.map((item) => {
-        const user = allUsers.find((u) => u.id === item.user_id);
-        return {
-          id: item.user_id,
-          email: user?.email || "N/A",
-          department: item.department || "N/A",
-          role: item.role || "user",
-        };
-      });
-
-      setUsers(formattedUsers);
+      // The function returns a JSON object with a 'users' key
+      setUsers(data.users || []);
     } catch (err) {
       console.error("Error fetching users:", err.message);
+      alert("Error fetching users: " + err.message);
       setUsers([]); // reset on error
     }
   };
@@ -56,6 +34,10 @@ export default function UserManagement() {
     e.preventDefault();
 
     try {
+      // NOTE: For enhanced security, you might consider moving this logic
+      // to your 'create-user' Edge Function as well.
+      // However, the current approach is functional.
+
       // Create new user
       const { data: signUpData, error: signUpError } =
         await supabase.auth.signUp({
@@ -93,10 +75,21 @@ export default function UserManagement() {
       setEmail("");
       setPassword("");
       setDepartment("");
-      fetchUsers();
+      fetchUsers(); // Refresh the user list
     } catch (err) {
       alert("Error creating user: " + err.message);
     }
+  };
+
+  // --- PLACEHOLDER FUNCTIONS ---
+  // You have onClick handlers for these but they are not defined.
+  // You will need to implement them.
+  const handleEditUser = (userId) => {
+    alert(`Edit functionality for user ${userId} is not yet implemented.`);
+  };
+
+  const handleDeleteUser = (userId) => {
+    alert(`Delete functionality for user ${userId} is not yet implemented.`);
   };
 
   return (
