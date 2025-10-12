@@ -16,6 +16,7 @@ import Login from "./pages/login";
 import Register from "./pages/register";
 import Data from "./pages/data";
 import Analysis from "./pages/analysis";
+import UserManagement from "./pages/UserManagement";
 
 const Sidebar = ({ onLogout, userId }) => (
   <div className="fixed top-0 left-0 h-screen w-[250px] backdrop-blur-md bg-white/30 border-r border-gray-200 text-gray-900 flex flex-col px-6 py-8 shadow-md z-50 font-[system-ui]">
@@ -186,6 +187,10 @@ export default function App() {
           <Route
             path="/analysis"
             element={user ? <Analysis /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/usermanagement"
+            element={user ? <UserManagement /> : <Navigate to="/login" />}
           />
           <Route
             path="/"
