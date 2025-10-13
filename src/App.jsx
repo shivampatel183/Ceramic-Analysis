@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Home, BarChart3, Database, User, LogOut } from "lucide-react";
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -18,95 +18,36 @@ import Data from "./pages/data";
 import Analysis from "./pages/analysis";
 import UserManagement from "./pages/UserManagement";
 
-const Sidebar = ({ onLogout, userId }) => (
+// ✅ Sidebar Component
+const Sidebar = ({ onLogout, userRole }) => (
   <div className="fixed top-0 left-0 h-screen w-[250px] backdrop-blur-md bg-white/30 border-r border-gray-200 text-gray-900 flex flex-col px-6 py-8 shadow-md z-50 font-[system-ui]">
     <h2 className="text-2xl font-bold mb-10 tracking-tight text-blue-600">
       Ceramic Cost Calculator
     </h2>
-
     <nav className="flex flex-col gap-3 text-[15px]">
-      <NavLink
-        to="/home"
-        className={({ isActive }) =>
-          `flex items-center gap-3 p-2 rounded-lg transition 
-           ${
-             isActive
-               ? "bg-blue-200 text-blue-700"
-               : "hover:bg-blue-100 hover:text-blue-600"
-           }`
-        }
-      >
-        <Home size={18} /> Home
-      </NavLink>
-
-      <NavLink
-        to="/sheet"
-        className={({ isActive }) =>
-          `flex items-center gap-3 p-2 rounded-lg transition 
-           ${
-             isActive
-               ? "bg-blue-200 text-blue-700"
-               : "hover:bg-blue-100 hover:text-blue-600"
-           }`
-        }
-      >
-        <BarChart3 size={18} /> Entry
-      </NavLink>
-
-      <NavLink
-        to="/data"
-        className={({ isActive }) =>
-          `flex items-center gap-3 p-2 rounded-lg transition 
-           ${
-             isActive
-               ? "bg-blue-200 text-blue-700"
-               : "hover:bg-blue-100 hover:text-blue-600"
-           }`
-        }
-      >
-        <Database size={18} /> Data
-      </NavLink>
-
-      <NavLink
-        to="/analysis"
-        className={({ isActive }) =>
-          `flex items-center gap-3 p-2 rounded-lg transition 
-           ${
-             isActive
-               ? "bg-blue-200 text-blue-700"
-               : "hover:bg-blue-100 hover:text-blue-600"
-           }`
-        }
-      >
-        <BarChart3 size={18} /> Analysis
-      </NavLink>
-      <NavLink
-        to="/usermanagement"
-        className={({ isActive }) =>
-          `flex items-center gap-3 p-2 rounded-lg transition 
-           ${
-             isActive
-               ? "bg-blue-200 text-blue-700"
-               : "hover:bg-blue-100 hover:text-blue-600"
-           }`
-        }
-      >
-        <User size={18} /> User Management
-      </NavLink>
-
-      <NavLink
-        to="/profile"
-        className={({ isActive }) =>
-          `flex items-center gap-3 p-2 rounded-lg transition 
-           ${
-             isActive
-               ? "bg-blue-200 text-blue-700"
-               : "hover:bg-blue-100 hover:text-blue-600"
-           }`
-        }
-      >
-        <User size={18} /> Profile
-      </NavLink>
+      {userRole === "admin" ? (
+        <>
+          <NavItem to="/home" icon={<Home size={18} />} label="Home" />
+          <NavItem to="/sheet" icon={<BarChart3 size={18} />} label="Entry" />
+          <NavItem to="/data" icon={<Database size={18} />} label="Data" />
+          <NavItem
+            to="/analysis"
+            icon={<BarChart3 size={18} />}
+            label="Analysis"
+          />
+          <NavItem
+            to="/usermanagement"
+            icon={<User size={18} />}
+            label="User Management"
+          />
+          <NavItem to="/profile" icon={<User size={18} />} label="Profile" />
+        </>
+      ) : (
+        <>
+          <NavItem to="/sheet" icon={<BarChart3 size={18} />} label="Entry" />
+          <NavItem to="/data" icon={<Database size={18} />} label="Data" />
+        </>
+      )}
     </nav>
 
     <button
@@ -118,84 +59,194 @@ const Sidebar = ({ onLogout, userId }) => (
   </div>
 );
 
+// ✅ Reusable Nav Item
+const NavItem = ({ to, icon, label }) => (
+  <NavLink
+    to={to}
+    className={({ isActive }) =>
+      `flex items-center gap-3 p-2 rounded-lg transition ${
+        isActive
+          ? "bg-blue-200 text-blue-700"
+          : "hover:bg-blue-100 hover:text-blue-600"
+      }`
+    }
+  >
+    {icon} {label}
+  </NavLink>
+);
+
+// ✅ Protected Route Wrapper
+const ProtectedRoute = ({ isAllowed, redirectPath = "/login", children }) =>
+  !isAllowed ? <Navigate to={redirectPath} replace /> : children;
+
+// ✅ Main App Component
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setUserId(session?.user?.id ?? null);
-      setLoading(false);
-    });
+  // ✅ Fetch user profile safely (only when needed)
+  const fetchUserProfile = useCallback(async (user) => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role, department")
+        .eq("user_id", user.id)
+        .single();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-        setUserId(session?.user?.id ?? null);
-      }
-    );
+      if (error) throw error;
 
-    return () => listener?.subscription.unsubscribe();
+      // ✅ Cache profile to avoid re-fetch on route change
+      localStorage.setItem("userProfile", JSON.stringify(data));
+      setUserProfile(data);
+    } catch (err) {
+      console.error("Error fetching user role:", err.message);
+      await supabase.auth.signOut();
+      alert("Session expired or unauthorized. Please log in again.");
+    }
   }, []);
 
+  // ✅ Setup authentication listener (runs once)
+  useEffect(() => {
+    const setupAuth = async () => {
+      setLoading(true);
+      const {
+        data: { session: initialSession },
+      } = await supabase.auth.getSession();
+
+      const cachedProfile = localStorage.getItem("userProfile");
+
+      if (cachedProfile) {
+        setUserProfile(JSON.parse(cachedProfile));
+      }
+
+      if (initialSession?.user && !cachedProfile) {
+        await fetchUserProfile(initialSession.user);
+      }
+
+      setSession(initialSession);
+      setLoading(false);
+
+      // ✅ Listen to login/logout events
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        setSession(newSession);
+        if (newSession?.user) {
+          await fetchUserProfile(newSession.user);
+        } else {
+          localStorage.removeItem("userProfile");
+          setUserProfile(null);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    };
+
+    setupAuth();
+  }, [fetchUserProfile]);
+
+  // ✅ Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser(null);
+    localStorage.removeItem("userProfile");
+    setUserProfile(null);
+    setSession(null);
   };
 
-  if (loading) return null;
+  const user = session?.user;
+  const userRole = userProfile?.role;
+  const userDepartment = userProfile?.department;
+  const isAdmin = userRole === "admin";
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg font-medium text-gray-600">Loading...</div>
+      </div>
+    );
 
   return (
     <Router>
-      {user && <Sidebar onLogout={handleLogout} userId={userId} />}
+      {user && userRole && (
+        <Sidebar onLogout={handleLogout} userRole={userRole} />
+      )}
+
       <div
         className={
-          user ? "ml-[250px] bg-gray-50 min-h-screen font-[system-ui]" : ""
+          user && userRole
+            ? "ml-[250px] bg-gray-50 min-h-screen font-[system-ui]"
+            : ""
         }
       >
         <Routes>
+          {/* ✅ Public Routes */}
           <Route
             path="/login"
             element={
-              !user ? <Login setUser={setUser} /> : <Navigate to="/home" />
+              !user ? <Login /> : <Navigate to={isAdmin ? "/home" : "/sheet"} />
             }
           />
           <Route
             path="/signup"
+            element={!user ? <Register /> : <Navigate to="/home" />}
+          />
+
+          {/* ✅ Admin Routes */}
+          <Route
+            path="/home"
             element={
-              !user ? <Register setUser={setUser} /> : <Navigate to="/home" />
+              <ProtectedRoute isAllowed={user && isAdmin}>
+                <Homepage />
+              </ProtectedRoute>
             }
           />
           <Route
-            path="/home"
-            element={user ? <Homepage /> : <Navigate to="/login" />}
-          />
-          <Route
-            path="/sheet"
-            element={user ? <Sheet /> : <Navigate to="/login" />}
-          />
-          <Route
-            path="/profile"
-            element={user ? <Profile user={user} /> : <Navigate to="/login" />}
-          />
-          <Route
-            path="/data"
-            element={user ? <Data /> : <Navigate to="/login" />}
-          />
-          <Route
             path="/analysis"
-            element={user ? <Analysis /> : <Navigate to="/login" />}
+            element={
+              <ProtectedRoute isAllowed={user && isAdmin}>
+                <Analysis />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/usermanagement"
-            element={user ? <UserManagement /> : <Navigate to="/login" />}
+            element={
+              <ProtectedRoute isAllowed={user && isAdmin}>
+                <UserManagement />
+              </ProtectedRoute>
+            }
           />
           <Route
-            path="/"
-            element={<Navigate to={user ? "/home" : "/login"} />}
+            path="/profile"
+            element={
+              <ProtectedRoute isAllowed={user && isAdmin}>
+                <Profile user={user} />
+              </ProtectedRoute>
+            }
           />
+
+          {/* ✅ Common User Routes */}
+          <Route
+            path="/sheet"
+            element={
+              <ProtectedRoute isAllowed={user && userRole}>
+                <Sheet userDepartment={userDepartment} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/data"
+            element={
+              <ProtectedRoute isAllowed={user && userRole}>
+                <Data userRole={userRole} userDepartment={userDepartment} />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ Default Route */}
+          <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </div>
     </Router>

@@ -1,95 +1,126 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
+// A simple Modal component for editing
+const EditUserModal = ({ user, onClose, onSave }) => {
+  const [department, setDepartment] = useState(user.department || "");
+  const [role, setRole] = useState(user.role || "");
+
+  const handleSave = () => {
+    onSave(user.id, { department, role });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+        <h3 className="text-lg font-bold mb-4">Edit User: {user.email}</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Department
+            </label>
+            <input
+              type="text"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Role
+            </label>
+            <input
+              type="text"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function UserManagement() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [department, setDepartment] = useState("");
   const [users, setUsers] = useState([]);
+  const departmentOptions = ["Production", "Packaging", "Die(Color)", "Other"];
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // --- REVISED AND CORRECTED fetchUsers function ---
   const fetchUsers = async () => {
     try {
-      // Securely call the 'list-users' Edge Function you created
       const { data, error } = await supabase.functions.invoke("list-users");
-
-      if (error) {
-        throw error;
-      }
-
-      // The function returns a JSON object with a 'users' key
+      if (error) throw error;
       setUsers(data.users || []);
     } catch (err) {
       console.error("Error fetching users:", err.message);
       alert("Error fetching users: " + err.message);
-      setUsers([]); // reset on error
+      setUsers([]);
     }
   };
 
   const handleAddUser = async (e) => {
     e.preventDefault();
-
     try {
-      // NOTE: For enhanced security, you might consider moving this logic
-      // to your 'create-user' Edge Function as well.
-      // However, the current approach is functional.
-
-      // Create new user
-      const { data: signUpData, error: signUpError } =
-        await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-      if (signUpError) throw signUpError;
-
-      const newUserId = signUpData.user?.id;
-      if (!newUserId) throw new Error("User ID not returned after signup.");
-
-      // Get current admin info
-      const {
-        data: { user: adminUser },
-        error: adminError,
-      } = await supabase.auth.getUser();
-
-      if (adminError) throw adminError;
-      if (!adminUser) throw new Error("Admin not logged in.");
-
-      // Insert into user_roles with department
-      const { error: roleError } = await supabase.from("user_roles").insert([
-        {
-          user_id: newUserId,
-          role: "user",
-          department,
-          created_by: adminUser.id,
-        },
-      ]);
-
-      if (roleError) throw roleError;
+      // We now use the secure Edge Function to create the user
+      const { error } = await supabase.functions.invoke("create-user", {
+        body: { email, password, department },
+      });
+      if (error) throw new Error(error.message);
 
       alert("User created successfully!");
       setEmail("");
       setPassword("");
       setDepartment("");
-      fetchUsers(); // Refresh the user list
+      fetchUsers();
     } catch (err) {
       alert("Error creating user: " + err.message);
     }
   };
 
-  // --- PLACEHOLDER FUNCTIONS ---
-  // You have onClick handlers for these but they are not defined.
-  // You will need to implement them.
-  const handleEditUser = (userId) => {
-    alert(`Edit functionality for user ${userId} is not yet implemented.`);
-  };
+  // --- Delete Logic ---
 
-  const handleDeleteUser = (userId) => {
-    alert(`Delete functionality for user ${userId} is not yet implemented.`);
+  const handleDeleteUser = async (userId) => {
+    if (
+      !window.confirm("Are you sure you want to permanently delete this user?")
+    ) {
+      return;
+    }
+    try {
+      // Call the secure 'delete-user' Edge Function
+      const { error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: userId },
+      });
+
+      if (error) throw new Error(error.message);
+
+      // Optimistically update the UI
+      setUsers(users.filter((user) => user.id !== userId));
+      alert("User deleted successfully!");
+    } catch (err) {
+      alert("Error deleting user: " + err.message);
+    }
   };
 
   return (
@@ -105,7 +136,7 @@ export default function UserManagement() {
         </h3>
         <form
           onSubmit={handleAddUser}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center"
         >
           <input
             type="email"
@@ -123,14 +154,21 @@ export default function UserManagement() {
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
             required
           />
-          <input
-            type="text"
-            placeholder="Department"
+          <select
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
             required
-          />
+          >
+            <option value="" disabled>
+              Select Department
+            </option>
+            {departmentOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
           <button
             type="submit"
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg shadow-md transition"
@@ -161,12 +199,6 @@ export default function UserManagement() {
                 <td className="p-3 border">{user.department}</td>
                 <td className="p-3 border capitalize">{user.role}</td>
                 <td className="p-3 border">
-                  <button
-                    onClick={() => handleEditUser(user.id)}
-                    className="text-indigo-600 hover:underline"
-                  >
-                    Edit
-                  </button>
                   <button
                     onClick={() => handleDeleteUser(user.id)}
                     className="text-red-600 hover:underline ml-4"

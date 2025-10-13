@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { Link } from "react-router-dom";
 
-const Login = ({ setUser }) => {
+// The 'setUser' prop is no longer needed
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showReset, setShowReset] = useState(false);
@@ -10,26 +12,24 @@ const Login = ({ setUser }) => {
 
   const handleLogin = async () => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // signInWithPassword will automatically trigger the onAuthStateChange
+    // listener in App.jsx, which now handles all user state.
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
       alert(error.message);
-    } else {
-      const user = data.user;
-      setUser({
-        ...user,
-        displayName: user.user_metadata?.display_name || "User",
-      });
     }
+    // The call to setUser is removed from here.
     setLoading(false);
   };
 
-  // Compatibility wrapper for sending password reset email across supabase-js versions
+  // The rest of your login component code remains the same...
+  // ... (sendResetEmail function, and the return() with JSX)
+
   const sendResetEmail = async (emailAddress) => {
-    // v2 method
     if (
       supabase.auth &&
       typeof supabase.auth.resetPasswordForEmail === "function"
@@ -38,8 +38,6 @@ const Login = ({ setUser }) => {
         redirectTo: window.location.origin + "/login",
       });
     }
-
-    // fallback: older client may expose auth.api.resetPasswordForEmail
     if (
       supabase.auth &&
       supabase.auth.api &&
@@ -47,7 +45,6 @@ const Login = ({ setUser }) => {
     ) {
       return await supabase.auth.api.resetPasswordForEmail(emailAddress);
     }
-
     throw new Error(
       "Supabase reset password API not available in this client version"
     );
@@ -124,23 +121,12 @@ const Login = ({ setUser }) => {
                     }
                     try {
                       setLoading(true);
-                      // Use compatibility wrapper
                       const result = await sendResetEmail(resetEmail);
-                      // supabase returns either { data, error } or an error object depending on version
                       if (result?.error) {
                         console.error("Reset error:", result.error);
                         alert(
                           "Failed to send reset email: " + result.error.message
                         );
-                      } else if (
-                        result?.error === undefined &&
-                        result?.data === undefined
-                      ) {
-                        // Some versions may throw or return nothing on success
-                        alert(
-                          "Password reset email process initiated. Check your inbox."
-                        );
-                        setShowReset(false);
                       } else {
                         alert("Password reset email sent. Check your inbox.");
                         setShowReset(false);
@@ -177,9 +163,9 @@ const Login = ({ setUser }) => {
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Don’t have an account?{" "}
-          <a href="/signup" className="text-blue-600 hover:underline">
+          <Link to="/signup" className="text-blue-600 hover:underline">
             Sign up
-          </a>
+          </Link>
         </p>
       </div>
     </div>

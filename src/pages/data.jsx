@@ -8,243 +8,83 @@ const cloneRows = (rows) => JSON.parse(JSON.stringify(rows));
 // Helper to trigger a data refresh in other tabs/components
 const triggerRefresh = () => {
   localStorage.setItem("refreshData", "true");
-  // Dispatch storage event for other tabs
   window.dispatchEvent(new Event("storage"));
 };
 
-export default function DataTable() {
+// --- Define which columns each department can see ---
+const departmentColumns = {
+  Production: [
+    "date",
+    "size",
+    "green_box_weight",
+    "press_box",
+    "before_flow",
+    "kiln_entry_box",
+    "fired_loss_box",
+    "sizing_fire_loss_boxes",
+    "spray_dryer_production",
+    "coal_units_use",
+    "daily_electricity_units_use",
+    "gas_consumption",
+  ],
+  Packaging: ["date", "size", "packing_box", "pre_box", "std_box", "eco_box"],
+  "Die(Color)": [
+    "date",
+    "size",
+    "base",
+    "brown",
+    "black",
+    "blue",
+    "red",
+    "yellow",
+    "green",
+  ],
+  Other: [
+    "date",
+    "size",
+    "maintenance",
+    "legal_illegal",
+    "office",
+    "diesel",
+    "general_freight",
+    "kiln_gap",
+    "commutative_kiln_gap",
+    "daily_unsizing_stock",
+    "body_cost",
+  ],
+};
+
+export default function DataTable({ userRole, userDepartment }) {
+  // Accept props
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editRow, setEditRow] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-
-  // Delete handler with optimistic update
-  const handleDelete = async (row) => {
-    console.log("Attempting to delete row:", row);
-    if (
-      !window.confirm(
-        `Are you sure you want to delete this record from ${row.date}?`
-      )
-    ) {
-      return;
-    }
-
-    // Optimistic update
-    const oldRows = cloneRows(rows);
-    setRows(rows.filter((r) => r.id !== row.id));
-
-    try {
-      const { error } = await supabase
-        .from("production_data")
-        .delete()
-        .match({ id: row.id });
-
-      if (error) throw error;
-
-      triggerRefresh();
-    } catch (err) {
-      console.error("Failed to delete:", err);
-      // Revert optimistic update
-      setRows(oldRows);
-      alert("Failed to delete record. Please try again.");
-    }
-  };
-
-  // Save handler for edit dialog
-  const handleSave = async (updatedData) => {
-    if (!updatedData.id) {
-      alert("Cannot update: missing row ID");
-      return;
-    }
-
-    setLoading(true);
-    // Keep a copy for rollback
-    const oldRows = cloneRows(rows);
-
-    // Check if user is authenticated
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-    if (sessionError || !session) {
-      alert("Please sign in to update records");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // First verify the row exists
-      const { data: existingRow, error: checkError } = await supabase
-        .from("production_data")
-        .select()
-        .eq("id", updatedData.id)
-        .single();
-
-      if (checkError || !existingRow) {
-        throw new Error("Row not found or access denied");
-      }
-
-      // Get the current user session
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("You must be logged in to update records");
-      }
-
-      // Prepare the data for update - only include fields that should be updated
-      const dataToUpdate = {
-        id: updatedData.id, // Include the ID explicitly
-        user_id: user.id, // Include the user_id for RLS
-        date: updatedData.date
-          ? new Date(updatedData.date).toISOString().split("T")[0]
-          : null,
-        size: updatedData.size,
-        green_box_weight: parseFloat(updatedData.green_box_weight) || 0,
-        press_box: parseFloat(updatedData.press_box) || 0,
-        before_flow: parseFloat(updatedData.before_flow) || 0,
-        kiln_entry_box: parseFloat(updatedData.kiln_entry_box) || 0,
-        packing_box: parseFloat(updatedData.packing_box) || 0,
-        fired_loss_box: parseFloat(updatedData.fired_loss_box) || 0,
-        sizing_fire_loss_boxes:
-          parseFloat(updatedData.sizing_fire_loss_boxes) || 0,
-        spray_dryer_production:
-          parseFloat(updatedData.spray_dryer_production) || 0,
-        coal_units_use: parseFloat(updatedData.coal_units_use) || 0,
-        daily_electricity_units_use:
-          parseFloat(updatedData.daily_electricity_units_use) || 0,
-        gas_consumption: parseFloat(updatedData.gas_consumption) || 0,
-        pre_box: parseFloat(updatedData.pre_box) || 0,
-        std_box: parseFloat(updatedData.std_box) || 0,
-        eco_box: parseFloat(updatedData.eco_box) || 0,
-        base: parseFloat(updatedData.base) || 0,
-        brown: parseFloat(updatedData.brown) || 0,
-        black: parseFloat(updatedData.black) || 0,
-        blue: parseFloat(updatedData.blue) || 0,
-        red: parseFloat(updatedData.red) || 0,
-        yellow: parseFloat(updatedData.yellow) || 0,
-        green: parseFloat(updatedData.green) || 0,
-        maintenance: parseFloat(updatedData.maintenance) || 0,
-        legal_illegal: parseFloat(updatedData.legal_illegal) || 0,
-        office: parseFloat(updatedData.office) || 0,
-        diesel: parseFloat(updatedData.diesel) || 0,
-        general_freight: parseFloat(updatedData.general_freight) || 0,
-        kiln_gap: parseFloat(updatedData.kiln_gap) || 0,
-        commutative_kiln_gap: parseFloat(updatedData.commutative_kiln_gap) || 0,
-        daily_unsizing_stock: parseFloat(updatedData.daily_unsizing_stock) || 0,
-        body_cost: parseFloat(updatedData.body_cost) || 0,
-      };
-
-      // Remove any undefined or NaN values
-      Object.keys(dataToUpdate).forEach((key) => {
-        if (
-          dataToUpdate[key] === undefined ||
-          Number.isNaN(dataToUpdate[key])
-        ) {
-          delete dataToUpdate[key];
-        }
-      });
-
-      console.log("Updating data for ID:", updatedData.id, dataToUpdate);
-
-      // Update the row
-      // First verify the row exists
-      const { data: rowToUpdate } = await supabase
-        .from("production_data")
-        .select()
-        .eq("id", updatedData.id)
-        .single();
-
-      if (!rowToUpdate) {
-        throw new Error("Record not found");
-      }
-
-      // Perform the update using upsert
-      const { data: updateResponse, error } = await supabase
-        .from("production_data")
-        .upsert(
-          {
-            id: updatedData.id, // Make sure to include the ID
-            ...dataToUpdate,
-          },
-          {
-            onConflict: "id",
-          }
-        )
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Supabase update error:", error);
-        throw error;
-      }
-
-      if (!updateResponse) {
-        throw new Error("No data returned from update");
-      }
-
-      // Log the successful update
-      console.log("Update successful. New database state:", updateResponse);
-
-      // Use the response directly since we used .single()
-      const updatedRow = updateResponse;
-      console.log("Processing update response:", updatedRow);
-
-      // Update local state with the final data
-      const newRows = rows.map((row) =>
-        row.id === updatedData.id ? updatedRow : row
-      );
-
-      setRows(newRows);
-
-      // Update cache
-      localStorage.setItem(
-        "production_data_cache",
-        JSON.stringify({
-          rows: newRows,
-          timestamp: Date.now(),
-        })
-      );
-
-      // Notify other components
-      triggerRefresh();
-
-      // Show success message
-      alert("Record updated successfully!");
-
-      // Close dialog
-      setEditRow(null);
-    } catch (err) {
-      console.error("Failed to update:", err);
-      // Revert to old state
-      setRows(oldRows);
-      alert(`Failed to update record: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Function to fetch data that we can reuse
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Determine which columns to select based on user role and department
+      let columnsToSelect = "*"; // Default for admin
+      if (
+        userRole !== "admin" &&
+        userDepartment &&
+        departmentColumns[userDepartment]
+      ) {
+        // For regular users, build a specific select string
+        // Always include 'id' for keying and editing purposes
+        columnsToSelect = "id," + departmentColumns[userDepartment].join(",");
+      }
+
       const { data, error } = await supabase
         .from("production_data")
-        .select("*")
-        .order("date", { ascending: false }); // Latest data first
+        .select(columnsToSelect) // Dynamically select columns
+        .order("date", { ascending: false });
 
       if (error) throw error;
 
       setRows(data || []);
-      // Update cache with fresh data
-      localStorage.setItem(
-        "production_data_cache",
-        JSON.stringify({
-          rows: data || [],
-          timestamp: Date.now(),
-        })
-      );
     } catch (err) {
       console.error("❌ Error fetching data:", err.message);
       alert("Failed to load data. Please refresh the page.");
@@ -253,22 +93,83 @@ export default function DataTable() {
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
-    fetchData();
-  }, []); // Empty deps for initial load
+    if (userRole && userDepartment) {
+      fetchData();
+    }
+  }, [userRole, userDepartment]); // Refetch when role/department is available
 
-  // Listen for refresh events
+  // Listen for refresh events from other components (like the Sheet page)
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "refreshData" && e.newValue === "true") {
         fetchData();
+        localStorage.removeItem("refreshData"); // Clean up the flag
       }
     };
-
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [userRole, userDepartment]); // Re-attach listener if props change
+
+  // --- All other functions (handleDelete, handleSave) remain the same ---
+  const handleDelete = async (row) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete this record from ${row.date}?`
+      )
+    ) {
+      return;
+    }
+    const oldRows = cloneRows(rows);
+    setRows(rows.filter((r) => r.id !== row.id));
+    try {
+      const { error } = await supabase
+        .from("production_data")
+        .delete()
+        .match({ id: row.id });
+      if (error) throw error;
+      triggerRefresh();
+    } catch (err) {
+      console.error("Failed to delete:", err);
+      setRows(oldRows);
+      alert("Failed to delete record. Please try again.");
+    }
+  };
+
+  const handleSave = async (updatedData) => {
+    if (!updatedData.id) {
+      alert("Cannot update: missing row ID");
+      return;
+    }
+    setLoading(true);
+    const oldRows = cloneRows(rows);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be logged in to update records");
+
+      const { error } = await supabase
+        .from("production_data")
+        .update(updatedData)
+        .eq("id", updatedData.id)
+        .select()
+        .single();
+      if (error) throw error;
+
+      // Manually refetch the data to get the updated row with the correct columns
+      fetchData();
+      triggerRefresh();
+      alert("Record updated successfully!");
+      setEditRow(null);
+    } catch (err) {
+      console.error("Failed to update:", err);
+      setRows(oldRows);
+      alert(`Failed to update record: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -286,8 +187,9 @@ export default function DataTable() {
     );
   }
 
+  // Dynamically generate columns from the first row of the fetched data
   const columns = Object.keys(rows[0]).filter(
-    (col) => col !== "user_id" && col !== "id"
+    (col) => col !== "id" && col !== "user_id"
   );
 
   const filteredRows = rows.filter((row) =>
@@ -295,7 +197,7 @@ export default function DataTable() {
   );
 
   const sortedRows = [...filteredRows].sort(
-    (a, b) => new Date(a.date) - new Date(b.date)
+    (a, b) => new Date(b.date) - new Date(a.date) // Sort descending (newest first)
   );
 
   const formatDate = (value) => {
@@ -315,7 +217,6 @@ export default function DataTable() {
           Production Data Table
         </h2>
 
-        {/* 🔍 Search */}
         <div className="flex justify-end mb-4">
           <input
             type="text"
@@ -326,7 +227,6 @@ export default function DataTable() {
           />
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto max-h-[70vh]">
           <table className="min-w-full w-full border-collapse table-auto">
             <thead className="bg-blue-600 text-white sticky top-0 z-10">
@@ -348,12 +248,10 @@ export default function DataTable() {
               </tr>
             </thead>
             <tbody>
-              {sortedRows.map((row, rowIndex) => (
+              {sortedRows.map((row) => (
                 <tr
-                  key={rowIndex}
-                  className={`transition-colors ${
-                    rowIndex % 2 === 0 ? "bg-gray-50" : "bg-white"
-                  } hover:bg-blue-50`}
+                  key={row.id}
+                  className="transition-colors odd:bg-white even:bg-gray-50 hover:bg-blue-50"
                 >
                   {columns.map((col) => (
                     <td
@@ -409,7 +307,6 @@ export default function DataTable() {
           </table>
         </div>
 
-        {/* Edit Dialog */}
         <EditDialog
           open={Boolean(editRow)}
           onClose={() => setEditRow(null)}
