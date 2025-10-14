@@ -1,7 +1,3 @@
-// packing.js
-import { supabase } from "../supabaseClient";
-
-// 🔹 Rate Table (per size)
 const PACKING_RATES = {
   "600x600": { packing_rate: 1.75, std_eco_rate: 8.7, pre_rate: 9.1 },
   "200x1000": { packing_rate: 1.9, std_eco_rate: 9.8, pre_rate: 10 },
@@ -10,8 +6,11 @@ const PACKING_RATES = {
   "400x400": { packing_rate: 1.0, std_eco_rate: 5.7, pre_rate: 5.7 },
 };
 
-// 🔹 Calculate Packing Cost (with %)
 export function calculatePackingCost(data) {
+  if (!data || data.length === 0) {
+    return { sizeWise: {}, total: 0 };
+  }
+
   let sizeWise = {};
   let total = 0;
 
@@ -36,30 +35,4 @@ export function calculatePackingCost(data) {
   );
 
   return { sizeWise, total };
-}
-
-// 🔹 Fetch Packing Cost from Supabase
-export async function fetchPackingCost(timeFilter, applyDateFilter) {
-  try {
-    let query = supabase
-      .from("production_data")
-      .select("size, packing_box, std_box, eco_box, pre_box");
-
-    query = applyDateFilter(query, timeFilter);
-
-    const { data, error } = await query;
-    if (error) {
-      console.error("Supabase Error (packing):", error.message);
-      return { sizeWise: {}, total: 0 };
-    }
-
-    if (!data || data.length === 0) {
-      return { sizeWise: {}, total: 0 };
-    }
-
-    return calculatePackingCost(data);
-  } catch (err) {
-    console.error("Error fetching packing cost:", err.message);
-    return { sizeWise: {}, total: 0 };
-  }
 }

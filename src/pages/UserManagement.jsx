@@ -1,19 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { Plus, Trash2, Edit, X, Loader2 } from "lucide-react";
+import Toast from "../components/Toast.jsx";
 
-// A simple Modal component for editing
 const EditUserModal = ({ user, onClose, onSave }) => {
   const [department, setDepartment] = useState(user.department || "");
   const [role, setRole] = useState(user.role || "");
 
   const handleSave = () => {
     onSave(user.id, { department, role });
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-        <h3 className="text-lg font-bold mb-4">Edit User: {user.email}</h3>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">Edit User</h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-slate-100"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <p className="text-sm text-slate-500 mb-6">
+          Editing profile for:{" "}
+          <span className="font-medium text-slate-700">{user.email}</span>
+        </p>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
@@ -23,7 +37,7 @@ const EditUserModal = ({ user, onClose, onSave }) => {
               type="text"
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
@@ -34,20 +48,20 @@ const EditUserModal = ({ user, onClose, onSave }) => {
               type="text"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
         </div>
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-8 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+            className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-semibold"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
           >
             Save Changes
           </button>
@@ -58,106 +72,136 @@ const EditUserModal = ({ user, onClose, onSave }) => {
 };
 
 export default function UserManagement() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [department, setDepartment] = useState("");
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [newUser, setNewUser] = useState({
+    email: "",
+    password: "",
+    department: "",
+  });
+
   const departmentOptions = ["Production", "Packaging", "Die(Color)", "Other"];
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const fetchUsers = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("list-users");
       if (error) throw error;
       setUsers(data.users || []);
     } catch (err) {
-      console.error("Error fetching users:", err.message);
-      alert("Error fetching users: " + err.message);
+      setNotification({
+        type: "error",
+        message: "Error fetching users: " + err.message,
+      });
       setUsers([]);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleAddUser = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
-      // We now use the secure Edge Function to create the user
       const { error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, department },
+        body: newUser,
       });
       if (error) throw new Error(error.message);
-
-      alert("User created successfully!");
-      setEmail("");
-      setPassword("");
-      setDepartment("");
+      setNotification({
+        type: "success",
+        message: "User created successfully!",
+      });
+      setNewUser({ email: "", password: "", department: "" });
       fetchUsers();
     } catch (err) {
-      alert("Error creating user: " + err.message);
+      setNotification({
+        type: "error",
+        message: "Error creating user: " + err.message,
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
-  // --- Delete Logic ---
 
   const handleDeleteUser = async (userId) => {
     if (
       !window.confirm("Are you sure you want to permanently delete this user?")
-    ) {
+    )
       return;
-    }
     try {
-      // Call the secure 'delete-user' Edge Function
+      setUsers(users.filter((user) => user.id !== userId));
       const { error } = await supabase.functions.invoke("delete-user", {
         body: { user_id: userId },
       });
-
       if (error) throw new Error(error.message);
-
-      // Optimistically update the UI
-      setUsers(users.filter((user) => user.id !== userId));
-      alert("User deleted successfully!");
+      setNotification({
+        type: "success",
+        message: "User deleted successfully!",
+      });
     } catch (err) {
-      alert("Error deleting user: " + err.message);
+      setNotification({
+        type: "error",
+        message: "Error deleting user: " + err.message,
+      });
+      fetchUsers(); // Re-fetch to get correct state
     }
   };
 
   return (
-    <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
-      <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
-        User Management
-      </h2>
+    <div className="p-4 sm:p-6 lg:p-8">
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onDismiss={() => setNotification(null)}
+        />
+      )}
+      <div className="mb-8">
+        <h1 className="text-xl font-bold text-gray-800">User Management</h1>
+        <p className="text-gray-500 mt-1">
+          Add, view, and manage department users.
+        </p>
+      </div>
 
       {/* Add New User Section */}
-      <div className="mx-auto bg-white shadow-md rounded-xl p-8 mb-8">
-        <h3 className="text-lg font-semibold text-indigo-700 border-b pb-2 mb-4">
+      <div className="bg-white shadow-md rounded-xl p-6 sm:p-8 mb-8">
+        <h3 className="text-xl font-semibold text-gray-800 mb-6">
           Add New User
         </h3>
         <form
           onSubmit={handleAddUser}
-          className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end"
         >
           <input
             type="email"
             placeholder="User Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            value={newUser.email}
+            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+            className="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-1.5"
             required
           />
           <input
             type="password"
             placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            value={newUser.password}
+            onChange={(e) =>
+              setNewUser({ ...newUser, password: e.target.value })
+            }
+            className="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-1.5"
             required
           />
           <select
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            value={newUser.department}
+            onChange={(e) =>
+              setNewUser({ ...newUser, department: e.target.value })
+            }
+            className="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-1.5"
             required
           >
             <option value="" disabled>
@@ -171,50 +215,82 @@ export default function UserManagement() {
           </select>
           <button
             type="submit"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg shadow-md transition"
+            disabled={isSubmitting}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg shadow-sm transition flex items-center justify-center gap-2 disabled:bg-indigo-400"
           >
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Plus size={20} />
+            )}{" "}
             Add User
           </button>
         </form>
       </div>
 
       {/* User List Section */}
-      <div className="mx-auto bg-white shadow-md rounded-xl p-8">
-        <h3 className="text-lg font-semibold text-indigo-700 border-b pb-2 mb-4">
-          Users Created by You
-        </h3>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-indigo-100 text-left">
-              <th className="p-3 border">Email</th>
-              <th className="p-3 border">Department</th>
-              <th className="p-3 border">Role</th>
-              <th className="p-3 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="p-3 border">{user.email}</td>
-                <td className="p-3 border">{user.department}</td>
-                <td className="p-3 border capitalize">{user.role}</td>
-                <td className="p-3 border">
-                  <button
-                    onClick={() => handleDeleteUser(user.id)}
-                    className="text-red-600 hover:underline ml-4"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {users.length === 0 && (
-          <p className="text-gray-500 text-sm text-center mt-4">
-            No users found for this admin.
+      <div className="bg-white shadow-md rounded-xl p-6 sm:p-8">
+        <h1 className="text-xl font-bold text-gray-800">Managed Users</h1>
+        {loading ? (
+          <div className="flex justify-center items-center h-40">
+            <Loader2 className="animate-spin text-indigo-500" size={32} />
+          </div>
+        ) : users.length === 0 ? (
+          <p className="text-gray-500 text-center py-10">
+            No users have been created yet.
           </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-slate-100">
+                <tr>
+                  <th className="p-3 font-semibold text-left text-slate-600 border-b">
+                    Email
+                  </th>
+                  <th className="p-3 font-semibold text-left text-slate-600 border-b">
+                    Department
+                  </th>
+                  <th className="p-3 font-semibold text-left text-slate-600 border-b">
+                    Role
+                  </th>
+                  <th className="p-3 font-semibold text-right text-slate-600 border-b">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {users.map((user) => (
+                  <tr key={user.id} className="hover:bg-slate-50">
+                    <td className="p-3 text-slate-700 font-medium">
+                      {user.email}
+                    </td>
+                    <td className="p-3 text-slate-700">{user.department}</td>
+                    <td className="p-3 text-slate-700 capitalize">
+                      {user.role}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          disabled
+                          className="p-2 text-gray-400 cursor-not-allowed"
+                          title="Edit (Coming Soon)"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

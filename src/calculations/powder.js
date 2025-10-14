@@ -1,5 +1,3 @@
-import { supabase } from "../supabaseClient";
-
 const bodyCostMap = {
   "600x600": 1.395,
   "200x1000": 1.395,
@@ -8,16 +6,8 @@ const bodyCostMap = {
   "400x400": 1.218,
 };
 
-export async function fetchPowderConsumption(filter, applyDateFilter) {
-  let query = supabase
-    .from("production_data")
-    .select("size, press_box, green_box_weight, date");
-
-  query = applyDateFilter(query, filter);
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("Error fetching powder data:", error);
+export function calculatePowderConsumption(data) {
+  if (!data || data.length === 0) {
     return { total: 0, sizeWise: {} };
   }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Home, BarChart3, Database, User, LogOut } from "lucide-react";
+import { Home, BarChart3, Database, User, LogOut, Loader2 } from "lucide-react";
 import {
   HashRouter as Router,
   Routes,
@@ -18,13 +18,12 @@ import Data from "./pages/data";
 import Analysis from "./pages/analysis";
 import UserManagement from "./pages/UserManagement";
 
-// ✅ Sidebar Component
 const Sidebar = ({ onLogout, userRole }) => (
-  <div className="fixed top-0 left-0 h-screen w-[250px] backdrop-blur-md bg-white/30 border-r border-gray-200 text-gray-900 flex flex-col px-6 py-8 shadow-md z-50 font-[system-ui]">
-    <h2 className="text-2xl font-bold mb-10 tracking-tight text-blue-600">
-      Ceramic Cost Calculator
+  <aside className="fixed top-0 left-0 h-screen w-[250px] bg-white border-r border-slate-200 flex flex-col p-6 shadow-sm z-50">
+    <h2 className="text-2xl font-bold mb-10 tracking-tight text-indigo-600">
+      Ceramic Analysis
     </h2>
-    <nav className="flex flex-col gap-3 text-[15px]">
+    <nav className="flex flex-col gap-3 text-sm">
       {userRole === "admin" ? (
         <>
           <NavItem to="/home" icon={<Home size={18} />} label="Home" />
@@ -49,25 +48,23 @@ const Sidebar = ({ onLogout, userRole }) => (
         </>
       )}
     </nav>
-
     <button
       onClick={onLogout}
-      className="mt-auto flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white text-sm py-2 rounded-lg shadow transition"
+      className="mt-auto flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-lg shadow-sm transition"
     >
       <LogOut size={16} /> Logout
     </button>
-  </div>
+  </aside>
 );
 
-// ✅ Reusable Nav Item
 const NavItem = ({ to, icon, label }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
-      `flex items-center gap-3 p-2 rounded-lg transition ${
+      `flex items-center gap-3 p-2.5 rounded-lg font-medium transition-colors ${
         isActive
-          ? "bg-blue-200 text-blue-700"
-          : "hover:bg-blue-100 hover:text-blue-600"
+          ? "bg-indigo-100 text-indigo-700"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`
     }
   >
@@ -75,84 +72,77 @@ const NavItem = ({ to, icon, label }) => (
   </NavLink>
 );
 
-// ✅ Protected Route Wrapper
 const ProtectedRoute = ({ isAllowed, redirectPath = "/login", children }) =>
   !isAllowed ? <Navigate to={redirectPath} replace /> : children;
 
-// ✅ Main App Component
 export default function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Fetch user profile safely (only when needed)
   const fetchUserProfile = useCallback(async (user) => {
-    if (!user) return;
+    if (!user) {
+      setUserProfile(null);
+      return;
+    }
     try {
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from("user_roles")
         .select("role, department")
         .eq("user_id", user.id)
         .single();
-
-      if (error) throw error;
-
-      // ✅ Cache profile to avoid re-fetch on route change
-      localStorage.setItem("userProfile", JSON.stringify(data));
-      setUserProfile(data);
+      if (error && status !== 406) throw error;
+      if (data) setUserProfile(data);
     } catch (err) {
       console.error("Error fetching user role:", err.message);
-      await supabase.auth.signOut();
-      alert("Session expired or unauthorized. Please log in again.");
+      setUserProfile(null);
     }
   }, []);
 
-  // ✅ Setup authentication listener (runs once)
-  useEffect(() => {
-    const setupAuth = async () => {
-      setLoading(true);
-      const {
-        data: { session: initialSession },
-      } = await supabase.auth.getSession();
-
-      const cachedProfile = localStorage.getItem("userProfile");
-
-      if (cachedProfile) {
-        setUserProfile(JSON.parse(cachedProfile));
-      }
-
-      if (initialSession?.user && !cachedProfile) {
-        await fetchUserProfile(initialSession.user);
-      }
-
-      setSession(initialSession);
-      setLoading(false);
-
-      // ✅ Listen to login/logout events
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-        setSession(newSession);
-        if (newSession?.user) {
-          await fetchUserProfile(newSession.user);
-        } else {
-          localStorage.removeItem("userProfile");
-          setUserProfile(null);
-        }
-      });
-
-      return () => subscription.unsubscribe();
-    };
-
-    setupAuth();
+  // Central function to check and set the session state
+  const checkSession = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    setSession(session);
+    await fetchUserProfile(session?.user);
+    setLoading(false); // Always stop loading after a check
   }, [fetchUserProfile]);
 
-  // ✅ Logout
+  useEffect(() => {
+    // Check session on initial load
+    checkSession();
+
+    // Set up a listener for auth changes (login, logout)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      fetchUserProfile(session?.user);
+      if (!session) {
+        setUserProfile(null);
+      }
+    });
+
+    // *** FIX IS HERE: Add event listener for tab visibility ***
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Re-check the session when the tab becomes visible again
+        checkSession();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      subscription?.unsubscribe();
+      // Clean up the visibility listener
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [checkSession, fetchUserProfile]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem("userProfile");
-    setUserProfile(null);
-    setSession(null);
   };
 
   const user = session?.user;
@@ -160,28 +150,28 @@ export default function App() {
   const userDepartment = userProfile?.department;
   const isAdmin = userRole === "admin";
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg font-medium text-gray-600">Loading...</div>
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-indigo-500" size={48} />
+          <p className="text-lg text-gray-600">Loading Application...</p>
+        </div>
       </div>
     );
+  }
 
   return (
     <Router>
       {user && userRole && (
         <Sidebar onLogout={handleLogout} userRole={userRole} />
       )}
-
-      <div
+      <main
         className={
-          user && userRole
-            ? "ml-[250px] bg-gray-50 min-h-screen font-[system-ui]"
-            : ""
+          user && userRole ? "ml-[250px] bg-slate-50 min-h-screen" : ""
         }
       >
         <Routes>
-          {/* ✅ Public Routes */}
           <Route
             path="/login"
             element={
@@ -192,8 +182,6 @@ export default function App() {
             path="/signup"
             element={!user ? <Register /> : <Navigate to="/home" />}
           />
-
-          {/* ✅ Admin Routes */}
           <Route
             path="/home"
             element={
@@ -221,13 +209,11 @@ export default function App() {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute isAllowed={user && isAdmin}>
+              <ProtectedRoute isAllowed={user && userRole}>
                 <Profile user={user} />
               </ProtectedRoute>
             }
           />
-
-          {/* ✅ Common User Routes */}
           <Route
             path="/sheet"
             element={
@@ -244,11 +230,9 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
-          {/* ✅ Default Route */}
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
-      </div>
+      </main>
     </Router>
   );
 }

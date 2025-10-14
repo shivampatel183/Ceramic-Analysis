@@ -1,19 +1,4 @@
-import { supabase } from "../supabaseClient";
-
-export async function fetchNetProduction(filter, applyDateFilter) {
-  let query = supabase
-    .from("production_data")
-    .select(
-      "kiln_entry_box, packing_box, fired_loss_box, sizing_fire_loss_boxes, date"
-    );
-
-  query = applyDateFilter(query, filter);
-
-  const { data } = await query;
-  return calculateNetProduction(data);
-}
-
-function calculateNetProduction(data) {
+export function calculateNetProduction(data) {
   if (!data || data.length === 0) {
     return 0;
   }
@@ -34,18 +19,7 @@ function calculateNetProduction(data) {
   return total;
 }
 
-export async function fetchProductionBySize(filter, applyDateFilter) {
-  let query = supabase
-    .from("production_data")
-    .select("size, kiln_entry_box, date");
-
-  query = applyDateFilter(query, filter);
-
-  const { data } = await query;
-  return groupBySize(data);
-}
-
-function groupBySize(data) {
+export function calculateProductionBySize(data) {
   if (!data || data.length === 0) {
     return [];
   }

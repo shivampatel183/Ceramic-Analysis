@@ -1,5 +1,3 @@
-import { supabase } from "../supabaseClient";
-
 const glazeFactors = {
   "600x600": { loss: 14.8991, cons: 15.19427 },
   "200x1000": { loss: 16.19602, cons: 16.51994 },
@@ -8,19 +6,7 @@ const glazeFactors = {
   "400x400": { loss: 6.75127, cons: 6.8862954 },
 };
 
-export async function fetchGlazeConsumption(filter, applyDateFilter) {
-  let query = supabase
-    .from("production_data")
-    .select("size, kiln_entry_box, press_box, date");
-
-  query = applyDateFilter(query, filter);
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("Error fetching glaze data:", error);
-    return { totalLoss: 0, totalConsumption: 0, sizeWise: {} };
-  }
-
+export function calculateGlazeConsumption(data) {
   let totalLoss = 0;
   let totalConsumption = 0;
   let sizeWise = {};

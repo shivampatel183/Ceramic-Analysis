@@ -1,19 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import EditDialog from "../components/EditDialog";
+import Toast from "../components/Toast.jsx";
+import { Search, Edit, Trash2, Loader2 } from "lucide-react";
 
-// Helper to clone rows for optimistic updates
-const cloneRows = (rows) => JSON.parse(JSON.stringify(rows));
-
-// Helper to trigger a data refresh in other tabs/components
-const triggerRefresh = () => {
-  localStorage.setItem("refreshData", "true");
-  window.dispatchEvent(new Event("storage"));
-};
-
-// --- Define which columns each department can see ---
 const departmentColumns = {
   Production: [
+    "id",
     "date",
     "size",
     "green_box_weight",
@@ -27,8 +20,17 @@ const departmentColumns = {
     "daily_electricity_units_use",
     "gas_consumption",
   ],
-  Packaging: ["date", "size", "packing_box", "pre_box", "std_box", "eco_box"],
+  Packaging: [
+    "id",
+    "date",
+    "size",
+    "packing_box",
+    "pre_box",
+    "std_box",
+    "eco_box",
+  ],
   "Die(Color)": [
+    "id",
     "date",
     "size",
     "base",
@@ -40,6 +42,7 @@ const departmentColumns = {
     "green",
   ],
   Other: [
+    "id",
     "date",
     "size",
     "maintenance",
@@ -54,266 +57,263 @@ const departmentColumns = {
   ],
 };
 
+const formatDate = (value) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+  const correctedDate = new Date(d.getTime() + userTimezoneOffset);
+  return correctedDate.toLocaleDateString("en-GB"); // DD/MM/YYYY
+};
+
 export default function DataTable({ userRole, userDepartment }) {
-  // Accept props
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editRow, setEditRow] = useState(null);
+  const [notification, setNotification] = useState(null);
 
-  // Function to fetch data that we can reuse
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!userRole || !userDepartment) return; // Don't fetch if user details aren't loaded
     setLoading(true);
     try {
-      // Determine which columns to select based on user role and department
-      let columnsToSelect = "*"; // Default for admin
+      let columnsToSelect = "*";
       if (
         userRole !== "admin" &&
         userDepartment &&
         departmentColumns[userDepartment]
       ) {
-        // For regular users, build a specific select string
-        // Always include 'id' for keying and editing purposes
-        columnsToSelect = "id," + departmentColumns[userDepartment].join(",");
+        columnsToSelect = departmentColumns[userDepartment].join(",");
       }
-
       const { data, error } = await supabase
         .from("production_data")
-        .select(columnsToSelect) // Dynamically select columns
+        .select(columnsToSelect)
         .order("date", { ascending: false });
-
       if (error) throw error;
-
       setRows(data || []);
     } catch (err) {
       console.error("❌ Error fetching data:", err.message);
-      alert("Failed to load data. Please refresh the page.");
+      setNotification({
+        type: "error",
+        message: "Failed to load data. Please refresh.",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [userRole, userDepartment]);
 
+  // Initial data fetch
   useEffect(() => {
-    if (userRole && userDepartment) {
-      fetchData();
-    }
-  }, [userRole, userDepartment]); // Refetch when role/department is available
+    fetchData();
+  }, [fetchData]);
 
-  // Listen for refresh events from other components (like the Sheet page)
+  // *** NEW: Add event listener for tab visibility ***
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === "refreshData" && e.newValue === "true") {
+    const handleVisibilityChange = () => {
+      // If the tab becomes visible, re-fetch the data
+      if (document.visibilityState === "visible") {
         fetchData();
-        localStorage.removeItem("refreshData"); // Clean up the flag
+      }
+    };
+
+    // Add the event listener when the component mounts
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Clean up the event listener when the component unmounts
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchData]); // Re-run if fetchData function changes
+
+  // Listener for changes from other tabs/components
+  useEffect(() => {
+    const handleStorageChange = () => {
+      if (localStorage.getItem("refreshData") === "true") {
+        fetchData();
+        localStorage.removeItem("refreshData");
       }
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [userRole, userDepartment]); // Re-attach listener if props change
+  }, [fetchData]);
 
-  // --- All other functions (handleDelete, handleSave) remain the same ---
-  const handleDelete = async (row) => {
+  const handleDelete = async (rowToDelete) => {
     if (
       !window.confirm(
-        `Are you sure you want to delete this record from ${row.date}?`
+        `Are you sure you want to delete this record from ${formatDate(
+          rowToDelete.date
+        )}?`
       )
-    ) {
+    )
       return;
-    }
-    const oldRows = cloneRows(rows);
-    setRows(rows.filter((r) => r.id !== row.id));
+    const originalRows = [...rows];
+    setRows(rows.filter((r) => r.id !== rowToDelete.id));
+    setNotification({ type: "success", message: "Record deleted." });
     try {
       const { error } = await supabase
         .from("production_data")
         .delete()
-        .match({ id: row.id });
+        .match({ id: rowToDelete.id });
       if (error) throw error;
-      triggerRefresh();
+      localStorage.setItem("refreshData", "true");
     } catch (err) {
-      console.error("Failed to delete:", err);
-      setRows(oldRows);
-      alert("Failed to delete record. Please try again.");
+      setNotification({
+        type: "error",
+        message: "Failed to delete. Restoring data.",
+      });
+      setRows(originalRows);
     }
   };
 
   const handleSave = async (updatedData) => {
-    if (!updatedData.id) {
-      alert("Cannot update: missing row ID");
-      return;
-    }
     setLoading(true);
-    const oldRows = cloneRows(rows);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in to update records");
-
       const { error } = await supabase
         .from("production_data")
         .update(updatedData)
-        .eq("id", updatedData.id)
-        .select()
-        .single();
+        .eq("id", updatedData.id);
       if (error) throw error;
-
-      // Manually refetch the data to get the updated row with the correct columns
-      fetchData();
-      triggerRefresh();
-      alert("Record updated successfully!");
+      await fetchData();
+      setNotification({
+        type: "success",
+        message: "Record updated successfully!",
+      });
       setEditRow(null);
+      localStorage.setItem("refreshData", "true");
     } catch (err) {
-      console.error("Failed to update:", err);
-      setRows(oldRows);
-      alert(`Failed to update record: ${err.message}`);
+      setNotification({
+        type: "error",
+        message: `Update failed: ${err.message}`,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p className="text-lg text-gray-600">Loading data...</p>
-      </div>
+  const columns = useMemo(() => {
+    if (rows.length === 0) return [];
+    return Object.keys(rows[0]).filter(
+      (col) => !["id", "user_id", "created_at"].includes(col)
     );
-  }
+  }, [rows]);
 
-  if (rows.length === 0) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p className="text-lg text-gray-600">No data found</p>
-      </div>
-    );
-  }
-
-  // Dynamically generate columns from the first row of the fetched data
-  const columns = Object.keys(rows[0]).filter(
-    (col) => col !== "id" && col !== "user_id"
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((row) =>
+        Object.values(row)
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      ),
+    [rows, search]
   );
-
-  const filteredRows = rows.filter((row) =>
-    Object.values(row).join(" ").toLowerCase().includes(search.toLowerCase())
-  );
-
-  const sortedRows = [...filteredRows].sort(
-    (a, b) => new Date(b.date) - new Date(a.date) // Sort descending (newest first)
-  );
-
-  const formatDate = (value) => {
-    if (!value) return "-";
-    const d = new Date(value);
-    if (isNaN(d)) return value;
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen p-2 sm:p-6">
-      <div className="mx-auto bg-white rounded-xl shadow-lg p-3 sm:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-6 text-blue-700">
-          Production Data Table
-        </h2>
-
-        <div className="flex justify-end mb-4">
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        <div className="overflow-x-auto max-h-[70vh]">
-          <table className="min-w-full w-full border-collapse table-auto">
-            <thead className="bg-blue-600 text-white sticky top-0 z-10">
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col}
-                    className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-left border-b border-gray-200 min-w-[120px] sm:min-w-[150px]"
-                  >
-                    {col.replace(/_/g, " ")}
-                  </th>
-                ))}
-                <th
-                  className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-left border-b border-gray-200 sticky right-0 bg-blue-600"
-                  style={{ minWidth: "100px" }}
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="transition-colors odd:bg-white even:bg-gray-50 hover:bg-blue-50"
-                >
-                  {columns.map((col) => (
-                    <td
-                      key={col}
-                      className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm border-b border-gray-200 min-w-[120px] sm:min-w-[150px] break-words"
-                    >
-                      {col === "date"
-                        ? formatDate(row[col])
-                        : row[col] !== null
-                        ? row[col]
-                        : "-"}
-                    </td>
-                  ))}
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm border-b border-gray-200 sticky right-0 bg-inherit">
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => setEditRow(row)}
-                        className="p-1 text-blue-600 hover:text-blue-800 focus:outline-none"
-                        title="Edit"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(row)}
-                        className="p-1 text-red-600 hover:text-red-800 focus:outline-none"
-                        title="Delete"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <EditDialog
-          open={Boolean(editRow)}
-          onClose={() => setEditRow(null)}
-          row={editRow}
-          onSave={handleSave}
+    <div className="bg-slate-50 min-h-screen p-4 sm:p-6 lg:p-8">
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onDismiss={() => setNotification(null)}
         />
+      )}
+      <div className="mx-auto bg-white rounded-xl shadow-md p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <h1 className="text-xl font-bold text-gray-800">Production Data</h1>
+          <div className="relative w-full sm:w-72">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={20}
+            />
+            <input
+              type="text"
+              placeholder="Search table..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center h-96">
+            <Loader2 className="animate-spin text-indigo-500" size={40} />
+          </div>
+        ) : filteredRows.length === 0 ? (
+          <div className="text-center py-20">
+            <h3 className="text-xl font-semibold text-gray-700">
+              No Data Found
+            </h3>
+            <p className="text-gray-500 mt-2">
+              {search
+                ? "Try adjusting your search term."
+                : "Go to the Entry page to add new data."}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto max-h-[75vh]">
+            <table className="min-w-full w-full border-collapse table-auto text-sm">
+              <thead className="bg-slate-100 sticky top-0 z-10">
+                <tr>
+                  {columns.map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 font-semibold text-left text-slate-600 capitalize border-b border-slate-200"
+                    >
+                      {col.replace(/_/g, " ")}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 font-semibold text-right text-slate-600 border-b border-slate-200 sticky right-0 bg-slate-100">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredRows.map((row) => (
+                  <tr
+                    key={row.id}
+                    className="hover:bg-slate-50 transition-colors group"
+                  >
+                    {columns.map((col) => (
+                      <td
+                        key={col}
+                        className="px-4 py-3 text-slate-700 whitespace-nowrap"
+                      >
+                        {col === "date"
+                          ? formatDate(row[col])
+                          : row[col] ?? "-"}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-slate-50 transition-colors">
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setEditRow(row)}
+                          className="p-2 text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-100"
+                          title="Edit"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row)}
+                          className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+      <EditDialog
+        open={Boolean(editRow)}
+        onClose={() => setEditRow(null)}
+        row={editRow}
+        onSave={handleSave}
+      />
     </div>
   );
 }

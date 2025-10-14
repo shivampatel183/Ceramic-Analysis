@@ -1,37 +1,17 @@
-import { fetchPowderConsumption } from "./powder";
-import { fetchGlazeConsumption } from "./glaze";
-import { fetchFuelConsumption } from "./fuel";
-import { fetchGasConsumption } from "./gas";
-import { fetchElectricityCost } from "./electricity";
-import { fetchPackingCost } from "./packing";
-import { fetchFixedCost } from "./fixedcost";
-import { fetchInkCost } from "./inkcost";
-import { fetchProductionBySize, fetchNetProduction } from "./netProduction";
-
-export async function fetchFinalResult(timeFilter, applyDateFilter) {
-  const [
-    powderRaw,
-    glazeRaw,
-    fuelRaw,
-    gasRaw,
-    electricityRaw,
-    packingRaw,
-    fixedRaw,
-    inkRaw,
-    netproductionRaw,
-  ] = await Promise.all([
-    fetchPowderConsumption(timeFilter, applyDateFilter),
-    fetchGlazeConsumption(timeFilter, applyDateFilter),
-    fetchFuelConsumption(timeFilter, applyDateFilter),
-    fetchGasConsumption(timeFilter, applyDateFilter),
-    fetchElectricityCost(timeFilter, applyDateFilter),
-    fetchPackingCost(timeFilter, applyDateFilter),
-    fetchFixedCost(timeFilter, applyDateFilter),
-    fetchInkCost(timeFilter, applyDateFilter),
-    fetchProductionBySize(timeFilter, applyDateFilter),
-  ]);
-
-  // ✅ Safe fallback with defaults
+// This function now takes all the pre-calculated data as arguments
+export function calculateFinalResult(
+  powderRaw,
+  glazeRaw,
+  fuelRaw,
+  gasRaw,
+  electricityRaw,
+  packingRaw,
+  fixedRaw,
+  inkRaw,
+  netproductionRaw,
+  totalProduction
+) {
+  // Safe fallbacks with defaults
   const powder = {
     sizeWise: powderRaw?.sizeWise || {},
     total: powderRaw?.total || 0,
@@ -45,12 +25,10 @@ export async function fetchFinalResult(timeFilter, applyDateFilter) {
     ),
     total: Number(glazeRaw?.totalConsumption) || 0,
   };
-
   const fuel = {
     sizeWise: fuelRaw?.fuelBySize || {},
     total: fuelRaw?.totalFuel || 0,
   };
-
   const gas = {
     sizeWise: gasRaw?.gasBySize || {},
     total: gasRaw?.totalGas || 0,
@@ -91,69 +69,70 @@ export async function fetchFinalResult(timeFilter, applyDateFilter) {
     SqFeetCost: {},
   };
 
-  // ✅ Safe division
+  // Safe division function
   const safeDivide = (num, denom) => {
     const n = Number(num) || 0;
     const d = Number(denom) || 0;
-    return (n / d).toFixed(2) || "0.00";
+    return d === 0 ? "0.00" : (n / d).toFixed(2);
   };
 
-  // ✅ Convert production array to object { size: total }
   const productiondata = Object.fromEntries(
     (netproductionRaw || []).map((row) => [row.size, row.total])
   );
 
-  const totalProduction = await fetchNetProduction(timeFilter, applyDateFilter);
   sizes.forEach((size) => {
+    let costBody = 0,
+      costGlaze = 0,
+      costPacking = 0,
+      costFuel = 0,
+      costGas = 0,
+      costElectricity = 0,
+      costInk = 0,
+      costFixed = 0;
+
     if (size === "Total") {
       const prod = Number(totalProduction) || 1;
-
-      result.Body[size] = safeDivide(powder.total, prod || 1);
-      result.Glaze[size] = safeDivide(glaze.total, prod || 1);
-      result.Packing[size] = safeDivide(packing.total, prod || 1);
-      result.Fuel[size] = safeDivide(fuel.total, prod || 1);
-      result.Gas[size] = safeDivide(gas.total, prod || 1);
-      result.Electricity[size] = safeDivide(electricity.total, prod || 1);
-      result.Ink[size] = safeDivide(ink.total, prod || 1);
-      result.Fixed[size] = safeDivide(Fixed.total, prod || 1);
-
-      result.Total[size] = (
-        (parseFloat(result.Body[size]) || 0) +
-        (parseFloat(result.Glaze[size]) || 0) +
-        (parseFloat(result.Packing[size]) || 0) +
-        (parseFloat(result.Fuel[size]) || 0) +
-        (parseFloat(result.Gas[size]) || 0) +
-        (parseFloat(result.Electricity[size]) || 0) +
-        (parseFloat(result.Ink[size]) || 0) +
-        (parseFloat(result.Fixed[size]) || 0)
-      ).toFixed(2);
-
-      result.SqFeetCost[size] = safeDivide(result.Total[size] / 8.6, 1);
+      costBody = safeDivide(powder.total, prod);
+      costGlaze = safeDivide(glaze.total, prod);
+      costPacking = safeDivide(packing.total, prod);
+      costFuel = safeDivide(fuel.total, prod);
+      costGas = safeDivide(gas.total, prod);
+      costElectricity = safeDivide(electricity.total, prod);
+      costInk = safeDivide(ink.total, prod);
+      costFixed = safeDivide(Fixed.total, prod);
     } else {
       const prod = Number(productiondata[size]) || 1;
-
-      result.Body[size] = safeDivide(powder.sizeWise?.[size], prod);
-      result.Glaze[size] = safeDivide(glaze.sizeWise?.[size], prod);
-      result.Packing[size] = safeDivide(packing.sizeWise?.[size], prod);
-      result.Fuel[size] = safeDivide(fuel.sizeWise?.[size], prod);
-      result.Gas[size] = safeDivide(gas.sizeWise?.[size], prod);
-      result.Electricity[size] = safeDivide(electricity.sizeWise?.[size], prod);
-      result.Ink[size] = safeDivide(ink.sizeWise?.[size], prod);
-      result.Fixed[size] = safeDivide(Fixed.sizeWise?.[size], prod);
-
-      result.Total[size] = (
-        (parseFloat(result.Body[size]) || 0) +
-        (parseFloat(result.Glaze[size]) || 0) +
-        (parseFloat(result.Packing[size]) || 0) +
-        (parseFloat(result.Fuel[size]) || 0) +
-        (parseFloat(result.Gas[size]) || 0) +
-        (parseFloat(result.Electricity[size]) || 0) +
-        (parseFloat(result.Ink[size]) || 0) +
-        (parseFloat(result.Fixed[size]) || 0)
-      ).toFixed(2);
-
-      result.SqFeetCost[size] = safeDivide(result.Total[size] / 8.6, 1);
+      costBody = safeDivide(powder.sizeWise?.[size], prod);
+      costGlaze = safeDivide(glaze.sizeWise?.[size], prod);
+      costPacking = safeDivide(packing.sizeWise?.[size], prod);
+      costFuel = safeDivide(fuel.sizeWise?.[size], prod);
+      costGas = safeDivide(gas.sizeWise?.[size], prod);
+      costElectricity = safeDivide(electricity.sizeWise?.[size], prod);
+      costInk = safeDivide(ink.sizeWise?.[size], prod);
+      costFixed = safeDivide(Fixed.sizeWise?.[size], prod);
     }
+
+    result.Body[size] = costBody;
+    result.Glaze[size] = costGlaze;
+    result.Packing[size] = costPacking;
+    result.Fuel[size] = costFuel;
+    result.Gas[size] = costGas;
+    result.Electricity[size] = costElectricity;
+    result.Ink[size] = costInk;
+    result.Fixed[size] = costFixed;
+
+    result.Total[size] = (
+      parseFloat(costBody) +
+      parseFloat(costGlaze) +
+      parseFloat(costPacking) +
+      parseFloat(costFuel) +
+      parseFloat(costGas) +
+      parseFloat(costElectricity) +
+      parseFloat(costInk) +
+      parseFloat(costFixed)
+    ).toFixed(2);
+
+    result.SqFeetCost[size] = (parseFloat(result.Total[size]) / 8.6).toFixed(2);
   });
 
   return result;

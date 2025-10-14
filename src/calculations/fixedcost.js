@@ -1,21 +1,4 @@
-// calculations/fixedcost.js
-import { supabase } from "../supabaseClient";
-
-export async function fetchFixedCost(timeFilter, applyDateFilter) {
-  let query = supabase
-    .from("production_data") // 🔹 replace with actual table
-    .select(
-      "size, maintenance, legal_illegal, office, diesel, general_freight"
-    );
-
-  query = applyDateFilter(query, timeFilter);
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("Error fetching fixed costs:", error);
-    return { total: 0, sizeWise: {} };
-  }
-
+export function calculateFixedCost(data) {
   let total = 0;
   let sizeWise = {};
 

@@ -1,74 +1,55 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
-import { fetchPowderConsumption } from "../calculations/powder";
-import { fetchGlazeConsumption } from "../calculations/glaze";
+import { supabase } from "../supabaseClient";
+
+// Import all the new synchronous calculation functions
+import { calculatePowderConsumption } from "../calculations/powder";
+import { calculateGlazeConsumption } from "../calculations/glaze";
 import {
-  fetchNetProduction,
-  fetchProductionBySize,
+  calculateNetProduction,
+  calculateProductionBySize,
 } from "../calculations/netProduction";
-import { fetchFuelConsumption } from "../calculations/fuel";
-import { fetchGasConsumption } from "../calculations/gas";
-import { fetchElectricityCost } from "../calculations/electricity";
-import { fetchPackingCost } from "../calculations/packing";
-import { fetchFixedCost } from "../calculations/fixedcost";
-import { fetchInkCost } from "../calculations/inkcost";
+import { calculateFuelConsumption } from "../calculations/fuel";
+import { calculateGasConsumption } from "../calculations/gas";
+import { calculateElectricityCost } from "../calculations/electricity";
+import { calculatePackingCost } from "../calculations/packing";
+import { calculateFixedCost } from "../calculations/fixedcost";
+import { calculateInkCost } from "../calculations/inkcost";
+import { calculateFinalResult } from "../calculations/finalresult";
+
 import SizeTableCard from "../components/SizeTableCard";
 import StatCard from "../components/StatCard";
 import FinalResultTable from "../components/FinalResultTable";
-import { fetchFinalResult } from "../calculations/finalresult";
 
 export default function Analysis() {
   const [analysisTimeFilter, setAnalysisTimeFilter] = useState(
     () => localStorage.getItem("analysisTimeFilter") || "day"
   );
+  const [loading, setLoading] = useState(true);
 
-  // powder states
+  // All state declarations remain the same
   const [totalPowder, setTotalPowder] = useState(0);
   const [powderBySize, setPowderBySize] = useState({});
-
-  // glaze states
   const [totalGlazeLoss, setTotalGlazeLoss] = useState(0);
   const [totalGlazeConsumption, setTotalGlazeConsumption] = useState(0);
   const [glazeBySize, setGlazeBySize] = useState({});
-
-  // net production states
   const [netProduction, setNetProduction] = useState(0);
   const [sizeData, setSizeData] = useState([]);
-
-  // fuel states
   const [totalFuel, setTotalFuel] = useState(0);
   const [fuelBySize, setFuelBySize] = useState({});
   const [coalConsumptionKgPerTon, setCoalConsumptionKgPerTon] = useState(0);
-
-  // gas states
   const [totalGas, setTotalGas] = useState(0);
   const [gasBySize, setGasBySize] = useState({});
   const [kclPerKg, setKclPerKg] = useState(0);
-
-  // electricity states
   const [electricityCost, setElectricityCost] = useState({
     sizeWise: {},
     total: 0,
   });
-  // packing states
-  const [packingCost, setPackingCost] = useState({
-    sizeWise: {},
-    total: 0,
-  });
-
-  // fixedCost
-  const [fixedCost, setFixedCost] = useState({
-    sizeWise: {},
-    total: 0,
-  });
-
-  // ink cost states
+  const [packingCost, setPackingCost] = useState({ sizeWise: {}, total: 0 });
+  const [fixedCost, setFixedCost] = useState({ sizeWise: {}, total: 0 });
   const [inkCost, setInkCost] = useState({ sizeWise: {}, total: 0 });
-
-  // final result
   const [finalResult, setFinalResult] = useState(null);
 
-  // 🔹 Apply date filter
+  // Date filter logic remains the same
   function applyDateFilter(query, filter) {
     const today = new Date();
     if (filter === "day") {
@@ -87,72 +68,130 @@ export default function Analysis() {
     return query;
   }
 
+  // Central data fetching function
+  async function fetchProductionData(filter, applyDateFilter) {
+    let query = supabase.from("production_data").select("*");
+    query = applyDateFilter(query, filter);
+    const { data, error } = await query;
+    if (error) {
+      console.error("Error fetching production data:", error);
+      return [];
+    }
+    return data || [];
+  }
+
   useEffect(() => {
     localStorage.setItem("analysisTimeFilter", analysisTimeFilter);
 
-    (async () => {
-      const powder = await fetchPowderConsumption(
+    const runAnalysis = async () => {
+      setLoading(true);
+
+      // 1. Fetch all data in a single API call
+      const productionData = await fetchProductionData(
         analysisTimeFilter,
         applyDateFilter
       );
+
+      if (productionData.length === 0) {
+        // Reset all states if there's no data for the selected period
+        setTotalPowder(0);
+        setPowderBySize({});
+        setTotalGlazeLoss(0);
+        setTotalGlazeConsumption(0);
+        setGlazeBySize({});
+        setNetProduction(0);
+        setSizeData([]);
+        setTotalFuel(0);
+        setFuelBySize({});
+        setCoalConsumptionKgPerTon(0);
+        setTotalGas(0);
+        setGasBySize({});
+        setKclPerKg(0);
+        setElectricityCost({ sizeWise: {}, total: 0 });
+        setPackingCost({ sizeWise: {}, total: 0 });
+        setFixedCost({ sizeWise: {}, total: 0 });
+        setInkCost({ sizeWise: {}, total: 0 });
+        setFinalResult(null);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Run all calculations with the fetched data. Since these are fast, Promise.all is not strictly necessary but shows the parallel pattern.
+      const [
+        powder,
+        glaze,
+        fuel,
+        gas,
+        electricity,
+        packing,
+        fixed,
+        ink,
+        netProductionResult,
+        productionBySize,
+      ] = [
+        calculatePowderConsumption(productionData),
+        calculateGlazeConsumption(productionData),
+        calculateFuelConsumption(productionData),
+        calculateGasConsumption(productionData),
+        calculateElectricityCost(productionData),
+        calculatePackingCost(productionData),
+        calculateFixedCost(productionData),
+        calculateInkCost(productionData),
+        calculateNetProduction(productionData),
+        calculateProductionBySize(productionData),
+      ];
+
+      const final = calculateFinalResult(
+        powder,
+        glaze,
+        fuel,
+        gas,
+        electricity,
+        packing,
+        fixed,
+        ink,
+        productionBySize,
+        netProductionResult
+      );
+
+      // 3. Set all state at once, triggering a single re-render
       setTotalPowder(powder.total);
       setPowderBySize(powder.sizeWise);
-      const glaze = await fetchGlazeConsumption(
-        analysisTimeFilter,
-        applyDateFilter
-      );
       setTotalGlazeLoss(glaze.totalLoss);
       setTotalGlazeConsumption(glaze.totalConsumption);
       setGlazeBySize(glaze.sizeWise);
-      const net = await fetchNetProduction(analysisTimeFilter, applyDateFilter);
-      setNetProduction(net);
-      const size = await fetchProductionBySize(
-        analysisTimeFilter,
-        applyDateFilter
-      );
-      setSizeData(size);
-      const fuel = await fetchFuelConsumption(
-        analysisTimeFilter,
-        applyDateFilter
-      );
+      setNetProduction(netProductionResult);
+      setSizeData(productionBySize);
       setTotalFuel(fuel.totalFuel);
       setFuelBySize(fuel.fuelBySize);
       setCoalConsumptionKgPerTon(fuel.coalConsumptionKgPerTon);
-      const gas = await fetchGasConsumption(
-        analysisTimeFilter,
-        applyDateFilter
-      );
       setTotalGas(gas.totalGas);
       setGasBySize(gas.gasBySize);
       setKclPerKg(gas.kclPerKg);
-      const electricity = await fetchElectricityCost(
-        analysisTimeFilter,
-        applyDateFilter
-      );
       setElectricityCost(electricity);
-      const packing = await fetchPackingCost(
-        analysisTimeFilter,
-        applyDateFilter
-      );
       setPackingCost(packing);
-      const fixed = await fetchFixedCost(analysisTimeFilter, applyDateFilter);
       setFixedCost(fixed);
-      const ink = await fetchInkCost(analysisTimeFilter, applyDateFilter);
       setInkCost(ink);
-      const data = await fetchFinalResult(analysisTimeFilter, applyDateFilter);
-      setFinalResult(data);
-      // Save to cache
-    })();
+      setFinalResult(final);
+
+      setLoading(false);
+    };
+
+    runAnalysis();
   }, [analysisTimeFilter]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p className="text-lg text-gray-600">Loading analysis...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
-      {/* Header */}
       <div className="flex flex-col md:flex-row items-center justify-between mb-8">
-        <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
-          📊 Production Analysis
-        </h2>
-
+        <h1 className="text-xl font-bold text-gray-800">Production Analysis</h1>
         <select
           value={analysisTimeFilter}
           onChange={(e) => setAnalysisTimeFilter(e.target.value)}
@@ -165,11 +204,15 @@ export default function Analysis() {
         </select>
       </div>
 
-      {/* final result table */}
-      {finalResult && <FinalResultTable data={finalResult} />}
+      {finalResult ? (
+        <FinalResultTable data={finalResult} />
+      ) : (
+        <p className="text-center text-gray-500 my-8">
+          No data available for the selected period.
+        </p>
+      )}
 
-      {/* Net Production */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Net Production"
           label="Total Units"
@@ -187,7 +230,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Powder */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Total Powder Consumption"
@@ -205,7 +247,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Glaze */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Glaze Consumption"
@@ -236,7 +277,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Fuel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Fuel Consumption"
@@ -250,7 +290,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Gas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard title="Gas Consumption" label="Total Gas" value={totalGas} />
         <SizeTableCard
@@ -260,7 +299,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Electricity */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Electricity Cost"
@@ -278,7 +316,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Packing */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Packing Cost"
@@ -296,7 +333,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Fixed */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Fixed Cost"
@@ -314,7 +350,6 @@ export default function Analysis() {
         />
       </div>
 
-      {/* Ink */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Ink Cost"

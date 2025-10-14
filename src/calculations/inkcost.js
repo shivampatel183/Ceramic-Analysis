@@ -1,5 +1,3 @@
-import { supabase } from "../supabaseClient";
-
 const inkRates = {
   base: 500,
   brown: 500,
@@ -10,16 +8,7 @@ const inkRates = {
   green: 800,
 };
 
-export async function fetchInkCost(timeFilter, applyDateFilter) {
-  let query = supabase.from("production_data").select("*");
-  query = applyDateFilter(query, timeFilter);
-
-  let { data, error } = await query;
-  if (error) {
-    console.error("Ink Cost fetch error:", error);
-    return { sizeWise: {}, total: 0 };
-  }
-
+export function calculateInkCost(data) {
   let total = 0;
   let sizeWise = {};
 

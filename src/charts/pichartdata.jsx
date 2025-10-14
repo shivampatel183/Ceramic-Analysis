@@ -1,6 +1,21 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { fetchFinalResult } from "../calculations/finalresult";
+import { supabase } from "../supabaseClient";
+
+// Import all calculation functions
+import { calculateFinalResult } from "../calculations/finalresult";
+import { calculatePowderConsumption } from "../calculations/powder";
+import { calculateGlazeConsumption } from "../calculations/glaze";
+import { calculateFuelConsumption } from "../calculations/fuel";
+import { calculateGasConsumption } from "../calculations/gas";
+import { calculateElectricityCost } from "../calculations/electricity";
+import { calculatePackingCost } from "../calculations/packing";
+import { calculateFixedCost } from "../calculations/fixedcost";
+import { calculateInkCost } from "../calculations/inkcost";
+import {
+  calculateProductionBySize,
+  calculateNetProduction,
+} from "../calculations/netProduction";
 
 const COLORS = [
   "#0088FE",
@@ -15,52 +30,54 @@ const COLORS = [
 
 export default function CostBreakdownPie({ range = "week" }) {
   const [data, setData] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [trendData, setTrendData] = useState([]);
-  const [selectedCost, setSelectedCost] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // 🧠 Handle slice click (drill-down 30-day trend)
-  async function handleSliceClick(costName) {
-    setSelectedCost(costName);
-    setModalOpen(true);
-
-    const today = new Date();
-    const trend = [];
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
-      const rangeFilter = (query) =>
-        query.gte("date", dateStr).lte("date", dateStr);
-      const res = await fetchFinalResult("day", rangeFilter);
-      trend.push({
-        date: dateStr,
-        value: parseFloat(res?.[costName]?.Total || 0),
-      });
-    }
-    setTrendData(trend);
-  }
-
-  // 🚀 Always fetch fresh data from Supabase (no localStorage)
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
       try {
         const today = new Date();
         let days = 7;
         if (range === "day") days = 1;
         else if (range === "week") days = 7;
         else if (range === "month") days = 30;
-        else if (range === "all") days = 90;
 
         const startDate = new Date(today);
         startDate.setDate(today.getDate() - days + 1);
         const startIso = startDate.toISOString().split("T")[0];
 
-        const rangeFilter = (query) => query.gte("date", startIso);
+        const { data: productionData, error } = await supabase
+          .from("production_data")
+          .select("*")
+          .gte("date", startIso);
 
-        const res = await fetchFinalResult("day", rangeFilter);
+        if (error) throw error;
 
-        if (res) {
+        if (productionData && productionData.length > 0) {
+          const powder = calculatePowderConsumption(productionData);
+          const glaze = calculateGlazeConsumption(productionData);
+          const fuel = calculateFuelConsumption(productionData);
+          const gas = calculateGasConsumption(productionData);
+          const electricity = calculateElectricityCost(productionData);
+          const packing = calculatePackingCost(productionData);
+          const fixed = calculateFixedCost(productionData);
+          const ink = calculateInkCost(productionData);
+          const netProductionResult = calculateNetProduction(productionData);
+          const productionBySize = calculateProductionBySize(productionData);
+
+          const finalResult = calculateFinalResult(
+            powder,
+            glaze,
+            fuel,
+            gas,
+            electricity,
+            packing,
+            fixed,
+            ink,
+            productionBySize,
+            netProductionResult
+          );
+
           const breakdown = [
             "Body",
             "Glaze",
@@ -72,12 +89,17 @@ export default function CostBreakdownPie({ range = "week" }) {
             "Fixed",
           ].map((key) => ({
             name: key,
-            value: parseFloat(res[key]?.Total || 0),
+            value: parseFloat(finalResult[key]?.Total || 0),
           }));
           setData(breakdown);
+        } else {
+          setData([]);
         }
       } catch (err) {
-        console.error("Error fetching final result:", err);
+        console.error("Error fetching pie chart data:", err);
+        setData([]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -89,7 +111,6 @@ export default function CostBreakdownPie({ range = "week" }) {
     [data]
   );
 
-  // 🎯 Custom label renderer for clean outer labels
   const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, index }) => {
     const RADIAN = Math.PI / 180;
     const radius = outerRadius + 16;
@@ -113,12 +134,19 @@ export default function CostBreakdownPie({ range = "week" }) {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 bg-white shadow-lg rounded-2xl w-full flex justify-center items-center h-96">
+        <p>Loading Chart...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-white shadow-lg rounded-2xl w-full">
       <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">
         Cost Breakdown
       </h2>
-
       <div className="w-full flex flex-col md:flex-row items-start gap-4">
         <div className="flex-1 h-80 md:h-96">
           <ResponsiveContainer width="100%" height="100%">
@@ -135,9 +163,6 @@ export default function CostBreakdownPie({ range = "week" }) {
                 nameKey="name"
                 labelLine={true}
                 label={renderCustomizedLabel}
-                onClick={(d, idx) => {
-                  if (data[idx]) handleSliceClick(data[idx].name);
-                }}
                 cursor="pointer"
               >
                 {data.map((entry, index) => (
@@ -151,8 +176,6 @@ export default function CostBreakdownPie({ range = "week" }) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Legend Section */}
         <div className="w-full md:w-56 flex-shrink-0">
           <div className="flex flex-col gap-3">
             {data.map((entry, idx) => {
@@ -160,10 +183,9 @@ export default function CostBreakdownPie({ range = "week" }) {
               const pct =
                 total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
               return (
-                <button
+                <div
                   key={`legend-${idx}`}
-                  onClick={() => handleSliceClick(entry.name)}
-                  className="flex items-center justify-between w-full text-left p-2 rounded hover:bg-gray-50"
+                  className="flex items-center justify-between w-full text-left p-2 rounded"
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -177,7 +199,7 @@ export default function CostBreakdownPie({ range = "week" }) {
                   <div className="text-sm text-gray-600">
                     {value.toFixed(2)} ({pct}%)
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

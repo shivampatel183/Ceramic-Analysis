@@ -8,7 +8,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { fetchProductionBySize } from "../calculations/netProduction";
+import { supabase } from "../supabaseClient"; // Import supabase
+import { calculateProductionBySize } from "../calculations/netProduction"; // Import the new calculation function
 
 const COLORS = [
   "#4F46E5",
@@ -25,74 +26,96 @@ const COLORS = [
   "#4BC0C0",
 ];
 
-export default function SizewiseGroupedBarChart({ range = "week" }) {
-  // Renamed for clarity
+export default function SizewiseStackedBarChart({ range = "week" }) {
   const [data, setData] = useState([]);
   const [allSizes, setAllSizes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      // Fetch production by size for the selected range
-      const today = new Date();
-      let days = 7;
-      if (range === "day") days = 1;
-      else if (range === "week") days = 7;
-      else if (range === "month") days = 30;
-      else if (range === "all") days = 90; // Consider a larger number for "all" or remove it if not needed
+      setLoading(true);
+      try {
+        const today = new Date();
+        let days = 7;
+        if (range === "day") days = 1;
+        else if (range === "week") days = 7;
+        else if (range === "month") days = 30;
 
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() - days + 1);
-      const startIso = startDate.toISOString().split("T")[0];
-      const rangeFilter = (query) => query.gte("date", startIso);
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - days + 1);
+        const startIso = startDate.toISOString().split("T")[0];
 
-      // fetchProductionBySize expects (filter, applyDateFilter)
-      const sizeData = await fetchProductionBySize(range, rangeFilter);
+        // 1. Fetch the raw data directly
+        const { data: productionData, error } = await supabase
+          .from("production_data")
+          .select("*")
+          .gte("date", startIso);
 
-      // Group by date
-      const grouped = {};
-      const sizesSet = new Set();
-      sizeData.forEach((row) => {
-        sizesSet.add(row.size);
-        if (!grouped[row.date]) grouped[row.date] = {};
-        grouped[row.date][row.size] = row.total;
-      });
+        if (error) throw error;
 
-      const allSizesArr = Array.from(sizesSet).sort();
-      setAllSizes(allSizesArr);
+        if (!productionData || productionData.length === 0) {
+          setData([]);
+          setAllSizes([]);
+          return;
+        }
 
-      // Build chart data
-      const chartData = Object.entries(grouped).map(([date, sizeObj]) => {
-        const row = { date };
-        allSizesArr.forEach((size) => {
-          row[size] = sizeObj[size] || 0;
+        // 2. Use the pure calculation function
+        const sizeData = calculateProductionBySize(productionData);
+
+        const grouped = {};
+        const sizesSet = new Set();
+        sizeData.forEach((row) => {
+          sizesSet.add(row.size);
+          // Assuming one entry per day/size from the calculation result
+          const date = productionData.find((p) => p.size === row.size)?.date; // Find corresponding date
+          if (date) {
+            if (!grouped[date]) grouped[date] = {};
+            grouped[date][row.size] = row.total;
+          }
         });
-        return row;
-      });
 
-      // Sort by date ascending
-      chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
-      setData(chartData);
+        const allSizesArr = Array.from(sizesSet).sort();
+        setAllSizes(allSizesArr);
+
+        const chartData = Object.entries(grouped).map(([date, sizeObj]) => {
+          const row = { date };
+          allSizesArr.forEach((size) => {
+            row[size] = sizeObj[size] || 0;
+          });
+          return row;
+        });
+
+        chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        setData(chartData);
+      } catch (err) {
+        console.error("Error loading stacked bar chart data:", err);
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [range]);
 
-  // Consistent color mapping for sizes (must be in render scope)
   const sizeColorMap = {};
   allSizes.forEach((size, idx) => {
     sizeColorMap[size] = COLORS[idx % COLORS.length];
   });
 
+  if (loading) {
+    return (
+      <div className="bg-white shadow-lg rounded-2xl p-6 h-96 flex justify-center items-center">
+        <p>Loading Chart...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white shadow-lg rounded-2xl p-6 ">
-      <h3 className="text-lg font-bold mb-4">Size-wise Production (Grouped)</h3>{" "}
-      {/* Updated title */}
+    <div className="bg-white shadow-lg rounded-2xl p-6">
+      <h3 className="text-lg font-bold mb-4">Size-wise Production</h3>
       <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            barCategoryGap="10%" // Adjust gap between groups of bars
-            barGap={2} // Adjust gap between bars within a group
-          >
+          <BarChart data={data} barCategoryGap="10%" barGap={2}>
             <XAxis dataKey={"date"} />
             <YAxis />
             <Tooltip />
@@ -101,7 +124,6 @@ export default function SizewiseGroupedBarChart({ range = "week" }) {
               <Bar
                 key={size}
                 dataKey={size}
-                // Removed stackId="a" to make them grouped instead of stacked
                 fill={sizeColorMap[size]}
                 name={size}
               />
