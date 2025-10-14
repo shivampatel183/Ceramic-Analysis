@@ -98,10 +98,6 @@ const Profile = ({ user }) => {
     }
   };
 
-  const handleChange = (field) => (value) => {
-    setProfile((prev) => ({ ...prev, [field]: value }));
-  };
-
   const handleCancelEdit = () => {
     setEditing(false);
     getProfile();
