@@ -4,6 +4,7 @@ import EditDialog from "../components/EditDialog";
 import Toast from "../components/Toast.jsx";
 import { Search, Edit, Trash2, Loader2 } from "lucide-react";
 
+// Defines which columns are relevant for each department.
 const departmentColumns = {
   Production: [
     "id",
@@ -57,12 +58,14 @@ const departmentColumns = {
   ],
 };
 
+// A utility function to format dates consistently.
 const formatDate = (value) => {
   if (!value) return "-";
   const d = new Date(value);
+  // Adjust for timezone offset to display the correct date
   const userTimezoneOffset = d.getTimezoneOffset() * 60000;
   const correctedDate = new Date(d.getTime() + userTimezoneOffset);
-  return correctedDate.toLocaleDateString("en-GB"); // DD/MM/YYYY
+  return correctedDate.toLocaleDateString("en-GB"); // DD/MM/YYYY format
 };
 
 export default function DataTable({ userRole, userDepartment }) {
@@ -72,23 +75,26 @@ export default function DataTable({ userRole, userDepartment }) {
   const [editRow, setEditRow] = useState(null);
   const [notification, setNotification] = useState(null);
 
+  // Optimized data fetching function wrapped in useCallback for stability.
   const fetchData = useCallback(async () => {
-    if (!userRole || !userDepartment) return; // Don't fetch if user details aren't loaded
+    if (!userRole || !userDepartment) return;
     setLoading(true);
+
     try {
-      let columnsToSelect = "*";
-      if (
-        userRole !== "admin" &&
-        userDepartment &&
-        departmentColumns[userDepartment]
-      ) {
-        columnsToSelect = departmentColumns[userDepartment].join(",");
-      }
+      // Determine which columns to select based on user role.
+      // Non-admins only fetch columns relevant to their department.
+      const columnsToSelect =
+        userRole !== "admin" && departmentColumns[userDepartment]
+          ? departmentColumns[userDepartment].join(",")
+          : "*";
+
       const { data, error } = await supabase
         .from("production_data")
         .select(columnsToSelect)
         .order("date", { ascending: false });
+
       if (error) throw error;
+
       setRows(data || []);
     } catch (err) {
       console.error("❌ Error fetching data:", err.message);
@@ -101,39 +107,22 @@ export default function DataTable({ userRole, userDepartment }) {
     }
   }, [userRole, userDepartment]);
 
-  // Initial data fetch
+  // Initial data fetch and re-fetch when user details change.
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // *** NEW: Add event listener for tab visibility ***
+  // Re-fetch data when the browser tab becomes visible again to ensure data is fresh.
   useEffect(() => {
     const handleVisibilityChange = () => {
-      // If the tab becomes visible, re-fetch the data
       if (document.visibilityState === "visible") {
         fetchData();
       }
     };
-
-    // Add the event listener when the component mounts
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Clean up the event listener when the component unmounts
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchData]); // Re-run if fetchData function changes
-
-  // Listener for changes from other tabs/components
-  useEffect(() => {
-    const handleStorageChange = () => {
-      if (localStorage.getItem("refreshData") === "true") {
-        fetchData();
-        localStorage.removeItem("refreshData");
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
   }, [fetchData]);
 
   const handleDelete = async (rowToDelete) => {
@@ -145,22 +134,23 @@ export default function DataTable({ userRole, userDepartment }) {
       )
     )
       return;
+
     const originalRows = [...rows];
     setRows(rows.filter((r) => r.id !== rowToDelete.id));
     setNotification({ type: "success", message: "Record deleted." });
+
     try {
       const { error } = await supabase
         .from("production_data")
         .delete()
         .match({ id: rowToDelete.id });
       if (error) throw error;
-      localStorage.setItem("refreshData", "true");
     } catch (err) {
       setNotification({
         type: "error",
         message: "Failed to delete. Restoring data.",
       });
-      setRows(originalRows);
+      setRows(originalRows); // Restore rows on failure
     }
   };
 
@@ -171,14 +161,15 @@ export default function DataTable({ userRole, userDepartment }) {
         .from("production_data")
         .update(updatedData)
         .eq("id", updatedData.id);
+
       if (error) throw error;
-      await fetchData();
+
+      await fetchData(); // Re-fetch to show updated data
       setNotification({
         type: "success",
         message: "Record updated successfully!",
       });
       setEditRow(null);
-      localStorage.setItem("refreshData", "true");
     } catch (err) {
       setNotification({
         type: "error",
@@ -189,13 +180,16 @@ export default function DataTable({ userRole, userDepartment }) {
     }
   };
 
+  // Memoized calculation for table columns.
   const columns = useMemo(() => {
     if (rows.length === 0) return [];
+    // Dynamically generate columns from the fetched data keys.
     return Object.keys(rows[0]).filter(
       (col) => !["id", "user_id", "created_at"].includes(col)
     );
   }, [rows]);
 
+  // Memoized calculation for filtered rows based on search input.
   const filteredRows = useMemo(
     () =>
       rows.filter((row) =>

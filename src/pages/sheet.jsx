@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { PlusCircle, Loader2 } from "lucide-react";
-import Toast from "../components/Toast.jsx"; // Import the new Toast component
+import Toast from "../components/Toast.jsx";
 
 const departmentCategories = {
   Production: ["📦 Production"],
@@ -99,10 +99,10 @@ export default function Sheet({ userDepartment }) {
     e.preventDefault();
     if (isLoading) return;
 
-    if (!formData.size) {
+    if (!formData.date || !formData.size) {
       setNotification({
         type: "error",
-        message: "Please select a size before submitting.",
+        message: "Please select a date and size before submitting.",
       });
       return;
     }
@@ -116,26 +116,65 @@ export default function Sheet({ userDepartment }) {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in to submit data.");
 
-      const numericFields = Object.keys(formData).filter(
-        (k) => k !== "size" && k !== "date"
-      );
-      const cleanedData = { ...formData };
-      numericFields.forEach((f) => {
-        cleanedData[f] = cleanedData[f] !== "" ? Number(cleanedData[f]) : null;
+      // 1. Prepare the payload with only the data for the current user's department.
+      const departmentPayload = {};
+      const visibleCategoriesForDept =
+        departmentCategories[userDepartment] || [];
+      const departmentFields = visibleCategoriesForDept
+        .flatMap((category) => allCategories[category])
+        .filter((field) => field !== "date" && field !== "size"); // Exclude common keys
+
+      departmentFields.forEach((field) => {
+        const value = formData[field];
+        departmentPayload[field] =
+          value === "" || value === undefined ? null : Number(value);
       });
 
-      const { error } = await supabase
+      // 2. Check if a row for this date and size already exists.
+      const { data: existingRow, error: fetchError } = await supabase
         .from("production_data")
-        .insert([{ ...cleanedData, user_id: user.id }]);
+        .select("id")
+        .eq("date", formData.date)
+        .eq("size", formData.size)
+        .single();
+
+      // Ignore the "zero rows found" error, as this is expected when we need to insert.
+      if (fetchError && fetchError.code !== "PGRST116") {
+        throw fetchError;
+      }
+
+      let error;
+
+      if (existingRow) {
+        // 3a. If row exists, UPDATE it with the new department-specific data.
+        const { error: updateError } = await supabase
+          .from("production_data")
+          .update(departmentPayload)
+          .eq("id", existingRow.id);
+        error = updateError;
+      } else {
+        // 3b. If row does not exist, INSERT a new one with the combined data.
+        const insertPayload = {
+          ...departmentPayload,
+          date: formData.date,
+          size: formData.size,
+          user_id: user.id, // Set the creator of the row
+        };
+        const { error: insertError } = await supabase
+          .from("production_data")
+          .insert([insertPayload]);
+        error = insertError;
+      }
 
       if (error) throw error;
 
+      // 4. Handle success and reset the form.
       localStorage.setItem("refreshData", "true");
       setNotification({
         type: "success",
-        message: "Data inserted successfully!",
+        message: "Data saved successfully!",
       });
-      setFormData(initialFormData); // Reset form to initial state
+      setFormData(initialFormData);
     } catch (err) {
       console.error("❌ Submission error:", err);
       setNotification({
@@ -217,7 +256,7 @@ export default function Sheet({ userDepartment }) {
                           name={key}
                           value={formData[key]}
                           onChange={handleChange}
-                          placeholder={`Enter value`}
+                          placeholder="Enter value"
                           className="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition p-1.5"
                         />
                       )}
@@ -235,11 +274,11 @@ export default function Sheet({ userDepartment }) {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="animate-spin" size={20} /> Submitting...
+                  <Loader2 className="animate-spin" size={20} /> Saving...
                 </>
               ) : (
                 <>
-                  <PlusCircle size={20} /> Submit Data
+                  <PlusCircle size={20} /> Save Data
                 </>
               )}
             </button>
