@@ -278,22 +278,30 @@ export default function DataTable({ userRole, userDepartment }) {
                       </td>
                     ))}
                     <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-slate-50 transition-colors">
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => setEditRow(row)}
-                          className="p-2 text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-100"
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(row)}
-                          className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      {/* --- THIS IS THE FIX --- */}
+                      {userRole === "admin" ? (
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => setEditRow(row)}
+                            className="p-2 text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-100"
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(row)}
+                            className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs px-2">
+                          No Actions
+                        </span>
+                      )}
+                      {/* --- END OF FIX --- */}
                     </td>
                   </tr>
                 ))}
