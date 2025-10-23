@@ -4,17 +4,21 @@ import { PlusCircle, Loader2 } from "lucide-react";
 import Toast from "../components/Toast.jsx";
 
 const departmentCategories = {
-  Production: ["📦 Production"],
-  Packaging: ["🏭 Boxes"],
-  "Die(Color)": ["🎨 Colors (Die)"],
-  Other: ["⚙️ Others"],
-  All: ["📦 Production", "🏭 Boxes", "🎨 Colors (Die)", "⚙️ Others"],
+  Production: ["Entry Details", "📦 Production"],
+  Packaging: ["Entry Details", "🏭 Boxes"],
+  "Die(Color)": ["Entry Details", "🎨 Colors (Die)"],
+  Other: ["Entry Details", "⚙️ Others"],
+  All: [
+    "Entry Details",
+    "📦 Production",
+    "🏭 Boxes",
+    "🎨 Colors (Die)",
+    "⚙️ Others",
+  ],
 };
-
 const allCategories = {
+  "Entry Details": ["date", "size"],
   "📦 Production": [
-    "date",
-    "size",
     "green_box_weight",
     "press_box",
     "before_flow",
@@ -48,7 +52,6 @@ const allCategories = {
     "body_cost",
   ],
 };
-
 const sizeOptions = ["600x600", "200x1000", "150x900", "200x1200", "400x400"];
 
 const initialFormData = {

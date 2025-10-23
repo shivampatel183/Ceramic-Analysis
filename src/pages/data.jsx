@@ -81,16 +81,18 @@ export default function DataTable({ userRole, userDepartment }) {
     setLoading(true);
 
     try {
-      // Determine which columns to select based on user role.
-      // Non-admins only fetch columns relevant to their department.
+      // For non-admins, select only their department columns ensuring 'id' is always included
+      // For admins, select '*' which WILL include owner_admin_id for now
       const columnsToSelect =
         userRole !== "admin" && departmentColumns[userDepartment]
-          ? departmentColumns[userDepartment].join(",")
-          : "*";
+          ? ["id", ...departmentColumns[userDepartment]]
+              .filter((v, i, a) => a.indexOf(v) === i)
+              .join(",")
+          : "*"; // Admin fetches everything initially
 
       const { data, error } = await supabase
         .from("production_data")
-        .select(columnsToSelect)
+        .select(columnsToSelect) // Use '*' for admin, specific columns for others
         .order("date", { ascending: false });
 
       if (error) throw error;
@@ -157,10 +159,13 @@ export default function DataTable({ userRole, userDepartment }) {
   const handleSave = async (updatedData) => {
     setLoading(true);
     try {
+      // Remove owner_admin_id before sending the update if it exists
+      const { owner_admin_id, ...dataToSave } = updatedData;
+
       const { error } = await supabase
         .from("production_data")
-        .update(updatedData)
-        .eq("id", updatedData.id);
+        .update(dataToSave) // Use the filtered data
+        .eq("id", dataToSave.id); // Use the id from the filtered data
 
       if (error) throw error;
 
@@ -180,12 +185,12 @@ export default function DataTable({ userRole, userDepartment }) {
     }
   };
 
-  // Memoized calculation for table columns.
+  // Memoized calculation for table columns. Filters out columns we don't want to display.
   const columns = useMemo(() => {
     if (rows.length === 0) return [];
-    // Dynamically generate columns from the fetched data keys.
+    // Get all keys from the first row, then filter out unwanted ones
     return Object.keys(rows[0]).filter(
-      (col) => !["id", "user_id", "created_at"].includes(col)
+      (col) => !["id", "user_id", "created_at", "owner_admin_id"].includes(col) // Filter out owner_admin_id here
     );
   }, [rows]);
 
@@ -193,7 +198,10 @@ export default function DataTable({ userRole, userDepartment }) {
   const filteredRows = useMemo(
     () =>
       rows.filter((row) =>
-        Object.values(row)
+        Object.entries(row) // Use entries to check key and value
+          // Filter out the owner_admin_id before joining for search
+          .filter(([key]) => key !== "owner_admin_id")
+          .map(([, value]) => value) // Get only the values
           .join(" ")
           .toLowerCase()
           .includes(search.toLowerCase())
@@ -240,7 +248,9 @@ export default function DataTable({ userRole, userDepartment }) {
             <p className="text-gray-500 mt-2">
               {search
                 ? "Try adjusting your search term."
-                : "Go to the Entry page to add new data."}
+                : rows.length === 0
+                ? "Go to the Entry page to add new data."
+                : "No data matches your search."}
             </p>
           </div>
         ) : (
@@ -267,18 +277,21 @@ export default function DataTable({ userRole, userDepartment }) {
                     key={row.id}
                     className="hover:bg-slate-50 transition-colors group"
                   >
-                    {columns.map((col) => (
-                      <td
-                        key={col}
-                        className="px-4 py-3 text-slate-700 whitespace-nowrap"
-                      >
-                        {col === "date"
-                          ? formatDate(row[col])
-                          : row[col] ?? "-"}
-                      </td>
-                    ))}
+                    {columns.map(
+                      (
+                        col // Uses the filtered 'columns' array
+                      ) => (
+                        <td
+                          key={col}
+                          className="px-4 py-3 text-slate-700 whitespace-nowrap"
+                        >
+                          {col === "date"
+                            ? formatDate(row[col])
+                            : row[col] ?? "-"}
+                        </td>
+                      )
+                    )}
                     <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-slate-50 transition-colors">
-                      {/* --- THIS IS THE FIX --- */}
                       {userRole === "admin" ? (
                         <div className="flex gap-2 justify-end">
                           <button
@@ -301,7 +314,6 @@ export default function DataTable({ userRole, userDepartment }) {
                           No Actions
                         </span>
                       )}
-                      {/* --- END OF FIX --- */}
                     </td>
                   </tr>
                 ))}
