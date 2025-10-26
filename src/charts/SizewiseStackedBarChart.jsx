@@ -1,136 +1,206 @@
-import React, { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
+import ReactApexChart from "react-apexcharts";
+import { Loader2 } from "lucide-react";
+import { calculateFinalResult } from "../calculations/finalresult";
+import { calculatePowderConsumption } from "../calculations/powder";
+import { calculateGlazeConsumption } from "../calculations/glaze";
+import { calculateFuelConsumption } from "../calculations/fuel";
+import { calculateGasConsumption } from "../calculations/gas";
+import { calculateElectricityCost } from "../calculations/electricity";
+import { calculatePackingCost } from "../calculations/packing";
+import { calculateFixedCost } from "../calculations/fixedcost";
+import { calculateInkCost } from "../calculations/inkcost";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
-import { supabase } from "../supabaseClient"; // Import supabase
-import { calculateProductionBySize } from "../calculations/netProduction"; // Import the new calculation function
+  calculateProductionBySize,
+  calculateNetProduction,
+} from "../calculations/netProduction";
 
-const COLORS = [
-  "#4F46E5",
-  "#EF4444",
-  "#10B981",
-  "#F59E0B",
-  "#3B82F6",
-  "#8B5CF6",
-  "#FFBB28",
-  "#FF8042",
-  "#A020F0",
-  "#FF6384",
-  "#36A2EB",
-  "#4BC0C0",
-];
+// 1. Date filter helper
+function applyDateFilter(query, filter) {
+  const today = new Date();
+  if (filter === "day") {
+    return query.gte("date", today.toISOString().split("T")[0]);
+  }
+  if (filter === "week") {
+    const weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+    return query.gte("date", weekAgo.toISOString().split("T")[0]);
+  }
+  if (filter === "month") {
+    const monthAgo = new Date();
+    monthAgo.setMonth(today.getMonth() - 1);
+    return query.gte("date", monthAgo.toISOString().split("T")[0]);
+  }
+  return query;
+}
 
-export default function SizewiseStackedBarChart({ range = "week" }) {
-  const [data, setData] = useState([]);
-  const [allSizes, setAllSizes] = useState([]);
+export default function SizewiseStackedBarChart({ range }) {
+  const [chartData, setChartData] = useState({ series: [], categories: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    async function fetchData() {
       setLoading(true);
+
       try {
-        const today = new Date();
-        let days = 7;
-        if (range === "day") days = 1;
-        else if (range === "week") days = 7;
-        else if (range === "month") days = 30;
+        // 2. Get user first
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not found");
 
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() - days + 1);
-        const startIso = startDate.toISOString().split("T")[0];
-
-        // 1. Fetch the raw data directly
-        const { data: productionData, error } = await supabase
+        // 3. Fetch all required data in parallel
+        let prodQuery = supabase
           .from("production_data")
           .select("*")
-          .gte("date", startIso);
+          .eq("user_id", user.id);
+        prodQuery = applyDateFilter(prodQuery, range);
 
-        if (error) throw error;
+        const settingsQuery = supabase
+          .from("cost_settings_history")
+          .select("*")
+          .eq("user_id", user.id);
 
-        if (!productionData || productionData.length === 0) {
-          setData([]);
-          setAllSizes([]);
+        const [prodResult, settingsResult] = await Promise.all([
+          prodQuery,
+          settingsQuery,
+        ]);
+
+        if (prodResult.error) throw prodResult.error;
+        if (settingsResult.error) throw settingsResult.error;
+
+        const productionData = prodResult.data || [];
+        const allCostHistory = settingsResult.data || [];
+
+        if (productionData.length === 0) {
+          setChartData({ series: [], categories: [] });
+          setLoading(false);
           return;
         }
 
-        // 2. Use the pure calculation function
-        const sizeData = calculateProductionBySize(productionData);
+        // 4. Run calculations WITH cost history
+        const powder = calculatePowderConsumption(
+          productionData,
+          allCostHistory
+        );
+        const glaze = calculateGlazeConsumption(productionData, allCostHistory);
+        const fuel = calculateFuelConsumption(productionData, allCostHistory);
+        const gas = calculateGasConsumption(productionData, allCostHistory);
+        const electricity = calculateElectricityCost(
+          productionData,
+          allCostHistory
+        );
+        const packing = calculatePackingCost(productionData, allCostHistory);
+        const fixed = calculateFixedCost(productionData, allCostHistory);
+        const ink = calculateInkCost(productionData, allCostHistory);
+        const netProductionResult = calculateNetProduction(productionData);
+        const productionBySize = calculateProductionBySize(productionData);
 
-        const grouped = {};
-        const sizesSet = new Set();
-        sizeData.forEach((row) => {
-          sizesSet.add(row.size);
-          // Assuming one entry per day/size from the calculation result
-          const date = productionData.find((p) => p.size === row.size)?.date; // Find corresponding date
-          if (date) {
-            if (!grouped[date]) grouped[date] = {};
-            grouped[date][row.size] = row.total;
-          }
-        });
+        const finalResult = calculateFinalResult(
+          powder,
+          glaze,
+          fuel,
+          gas,
+          electricity,
+          packing,
+          fixed,
+          ink,
+          productionBySize,
+          netProductionResult
+        );
 
-        const allSizesArr = Array.from(sizesSet).sort();
-        setAllSizes(allSizesArr);
+        if (!finalResult || finalResult.length === 0) {
+          setChartData({ series: [], categories: [] });
+          setLoading(false);
+          return;
+        }
 
-        const chartData = Object.entries(grouped).map(([date, sizeObj]) => {
-          const row = { date };
-          allSizesArr.forEach((size) => {
-            row[size] = sizeObj[size] || 0;
-          });
-          return row;
-        });
+        // 5. Format data for the stacked bar chart
+        const categories = finalResult.map((item) => item.size);
+        const series = [
+          {
+            name: "Powder",
+            data: finalResult.map((item) => item.powder.toFixed(0)),
+          },
+          {
+            name: "Glaze",
+            data: finalResult.map((item) => item.glaze.toFixed(0)),
+          },
+          {
+            name: "Fuel",
+            data: finalResult.map((item) => item.fuel.toFixed(0)),
+          },
+          { name: "Gas", data: finalResult.map((item) => item.gas.toFixed(0)) },
+          {
+            name: "Electricity",
+            data: finalResult.map((item) => item.electricity.toFixed(0)),
+          },
+          {
+            name: "Packing",
+            data: finalResult.map((item) => item.packing.toFixed(0)),
+          },
+          {
+            name: "Fixed",
+            data: finalResult.map((item) => item.fixed.toFixed(0)),
+          },
+          { name: "Ink", data: finalResult.map((item) => item.ink.toFixed(0)) },
+        ];
 
-        chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
-        setData(chartData);
-      } catch (err) {
-        console.error("Error loading stacked bar chart data:", err);
-        setData([]);
+        setChartData({ series, categories });
+      } catch (error) {
+        console.error("Error fetching stacked bar data:", error);
       } finally {
         setLoading(false);
       }
     }
-    load();
+    fetchData();
   }, [range]);
 
-  const sizeColorMap = {};
-  allSizes.forEach((size, idx) => {
-    sizeColorMap[size] = COLORS[idx % COLORS.length];
-  });
-
-  if (loading) {
-    return (
-      <div className="bg-white shadow-lg rounded-2xl p-6 h-96 flex justify-center items-center">
-        <p>Loading Chart...</p>
-      </div>
-    );
-  }
+  const chartOptions = {
+    chart: { type: "bar", height: 350, stacked: true, fontFamily: "inherit" },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        dataLabels: { total: { enabled: true, offsetX: 0 } },
+      },
+    },
+    stroke: { width: 1, colors: ["#fff"] },
+    xaxis: {
+      categories: chartData.categories,
+      labels: { formatter: (val) => "₹ " + val.toLocaleString("en-IN") },
+    },
+    yaxis: { title: { text: undefined } },
+    tooltip: {
+      y: {
+        formatter: (val) => "₹ " + val.toLocaleString("en-IN"),
+      },
+    },
+    fill: { opacity: 1 },
+    legend: { position: "top", horizontalAlign: "left", offsetX: 40 },
+  };
 
   return (
-    <div className="bg-white shadow-lg rounded-2xl p-6">
-      <h3 className="text-lg font-bold mb-4">Size-wise Production</h3>
-      <div className="h-96">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} barCategoryGap="10%" barGap={2}>
-            <XAxis dataKey={"date"} />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {allSizes.map((size) => (
-              <Bar
-                key={size}
-                dataKey={size}
-                fill={sizeColorMap[size]}
-                name={size}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+    <div>
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        Total Cost by Size
+      </h2>
+      {loading ? (
+        <div className="flex justify-center items-center h-80">
+          <Loader2 className="animate-spin text-indigo-500" size={40} />
+        </div>
+      ) : chartData.series.length > 0 ? (
+        <ReactApexChart
+          options={chartOptions}
+          series={chartData.series}
+          type="bar"
+          height={350}
+        />
+      ) : (
+        <div className="flex justify-center items-center h-80">
+          <p className="text-gray-500">No data available for this period.</p>
+        </div>
+      )}
     </div>
   );
 }

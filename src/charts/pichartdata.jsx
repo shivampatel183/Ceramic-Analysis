@@ -1,9 +1,7 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
-
-// Import all calculation functions
-import { calculateFinalResult } from "../calculations/finalresult";
+import ReactApexChart from "react-apexcharts";
+import { Loader2 } from "lucide-react";
 import { calculatePowderConsumption } from "../calculations/powder";
 import { calculateGlazeConsumption } from "../calculations/glaze";
 import { calculateFuelConsumption } from "../calculations/fuel";
@@ -12,199 +10,181 @@ import { calculateElectricityCost } from "../calculations/electricity";
 import { calculatePackingCost } from "../calculations/packing";
 import { calculateFixedCost } from "../calculations/fixedcost";
 import { calculateInkCost } from "../calculations/inkcost";
-import {
-  calculateProductionBySize,
-  calculateNetProduction,
-} from "../calculations/netProduction";
 
-const COLORS = [
-  "#0088FE",
-  "#00C49F",
-  "#FFBB28",
-  "#FF8042",
-  "#A020F0",
-  "#FF6384",
-  "#36A2EB",
-  "#4BC0C0",
-];
+// 1. Date filter helper
+function applyDateFilter(query, filter) {
+  const today = new Date();
+  if (filter === "day") {
+    return query.gte("date", today.toISOString().split("T")[0]);
+  }
+  if (filter === "week") {
+    const weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+    return query.gte("date", weekAgo.toISOString().split("T")[0]);
+  }
+  if (filter === "month") {
+    const monthAgo = new Date();
+    monthAgo.setMonth(today.getMonth() - 1);
+    return query.gte("date", monthAgo.toISOString().split("T")[0]);
+  }
+  return query;
+}
 
-export default function CostBreakdownPie({ range = "week" }) {
-  const [data, setData] = useState([]);
+export default function TotalBreakdownPie({ range }) {
+  const [chartData, setChartData] = useState({ series: [], labels: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
+    async function fetchData() {
       setLoading(true);
+
       try {
-        const today = new Date();
-        let days = 7;
-        if (range === "day") days = 1;
-        else if (range === "week") days = 7;
-        else if (range === "month") days = 30;
+        // 2. Get user first
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not found");
 
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() - days + 1);
-        const startIso = startDate.toISOString().split("T")[0];
-
-        const { data: productionData, error } = await supabase
+        // 3. Fetch all required data in parallel
+        let prodQuery = supabase
           .from("production_data")
           .select("*")
-          .gte("date", startIso);
+          .eq("user_id", user.id);
+        prodQuery = applyDateFilter(prodQuery, range);
 
-        if (error) throw error;
+        const settingsQuery = supabase
+          .from("cost_settings_history")
+          .select("*")
+          .eq("user_id", user.id);
 
-        if (productionData && productionData.length > 0) {
-          const powder = calculatePowderConsumption(productionData);
-          const glaze = calculateGlazeConsumption(productionData);
-          const fuel = calculateFuelConsumption(productionData);
-          const gas = calculateGasConsumption(productionData);
-          const electricity = calculateElectricityCost(productionData);
-          const packing = calculatePackingCost(productionData);
-          const fixed = calculateFixedCost(productionData);
-          const ink = calculateInkCost(productionData);
-          const netProductionResult = calculateNetProduction(productionData);
-          const productionBySize = calculateProductionBySize(productionData);
+        const [prodResult, settingsResult] = await Promise.all([
+          prodQuery,
+          settingsQuery,
+        ]);
 
-          const finalResult = calculateFinalResult(
-            powder,
-            glaze,
-            fuel,
-            gas,
-            electricity,
-            packing,
-            fixed,
-            ink,
-            productionBySize,
-            netProductionResult
-          );
+        if (prodResult.error) throw prodResult.error;
+        if (settingsResult.error) throw settingsResult.error;
 
-          const breakdown = [
-            "Body",
-            "Glaze",
-            "Packing",
-            "Fuel",
-            "Gas",
-            "Electricity",
-            "Ink",
-            "Fixed",
-          ].map((key) => ({
-            name: key,
-            value: parseFloat(finalResult[key]?.Total || 0),
-          }));
-          setData(breakdown);
-        } else {
-          setData([]);
+        const productionData = prodResult.data || [];
+        const allCostHistory = settingsResult.data || [];
+
+        if (productionData.length === 0) {
+          setChartData({ series: [], labels: [] });
+          setLoading(false);
+          return;
         }
-      } catch (err) {
-        console.error("Error fetching pie chart data:", err);
-        setData([]);
+
+        // 4. Run calculations WITH cost history
+        const powder = calculatePowderConsumption(
+          productionData,
+          allCostHistory
+        );
+        const glaze = calculateGlazeConsumption(productionData, allCostHistory);
+        const fuel = calculateFuelConsumption(productionData, allCostHistory);
+        const gas = calculateGasConsumption(productionData, allCostHistory);
+        const electricity = calculateElectricityCost(
+          productionData,
+          allCostHistory
+        );
+        const packing = calculatePackingCost(productionData, allCostHistory);
+        const fixed = calculateFixedCost(productionData, allCostHistory);
+        const ink = calculateInkCost(productionData, allCostHistory);
+
+        const series = [
+          Number(powder.total.toFixed(0)),
+          Number(glaze.totalConsumption.toFixed(0)),
+          Number(fuel.totalFuel.toFixed(0)),
+          Number(gas.totalGas.toFixed(0)),
+          Number(electricity.total.toFixed(0)),
+          Number(packing.total.toFixed(0)),
+          Number(fixed.total.toFixed(0)),
+          Number(ink.total.toFixed(0)),
+        ];
+
+        const labels = [
+          "Powder",
+          "Glaze",
+          "Fuel",
+          "Gas",
+          "Electricity",
+          "Packing",
+          "Fixed Cost",
+          "Ink",
+        ];
+
+        // Filter out zero-value categories
+        const filteredSeries = [];
+        const filteredLabels = [];
+        series.forEach((val, index) => {
+          if (val > 0) {
+            filteredSeries.push(val);
+            filteredLabels.push(labels[index]);
+          }
+        });
+
+        setChartData({ series: filteredSeries, labels: filteredLabels });
+      } catch (error) {
+        console.error("Error fetching pie chart data:", error);
       } finally {
         setLoading(false);
       }
-    };
-
-    loadData();
+    }
+    fetchData();
   }, [range]);
 
-  const total = useMemo(
-    () => data.reduce((s, d) => s + (Number(d.value) || 0), 0),
-    [data]
-  );
-
-  const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, index }) => {
-    const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 16;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    const entry = data[index] || {};
-    const value = Number(entry.value) || 0;
-    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
-
-    return (
-      <text
-        x={x}
-        y={y}
-        fill="#374151"
-        textAnchor={x > cx ? "start" : "end"}
-        dominantBaseline="central"
-        style={{ fontSize: 12 }}
-      >
-        {`${entry.name} (${pct}%)`}
-      </text>
-    );
+  const chartOptions = {
+    chart: { type: "donut", fontFamily: "inherit" },
+    labels: chartData.labels,
+    legend: { position: "bottom", fontFamily: "inherit" },
+    responsive: [
+      {
+        breakpoint: 480,
+        options: {
+          chart: { width: "100%" },
+          legend: { position: "bottom" },
+        },
+      },
+    ],
+    plotOptions: {
+      pie: {
+        donut: {
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: "Total Cost",
+              formatter: (w) => {
+                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                return "₹ " + total.toLocaleString("en-IN");
+              },
+            },
+          },
+        },
+      },
+    },
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 bg-white shadow-lg rounded-2xl w-full flex justify-center items-center h-96">
-        <p>Loading Chart...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 bg-white shadow-lg rounded-2xl w-full">
-      <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">
-        Cost Breakdown
+    <div>
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        Total Cost Breakdown
       </h2>
-      <div className="w-full flex flex-col md:flex-row items-start gap-4">
-        <div className="flex-1 h-80 md:h-96">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius="40%"
-                outerRadius="65%"
-                paddingAngle={4}
-                minAngle={3}
-                dataKey="value"
-                nameKey="name"
-                labelLine={true}
-                label={renderCustomizedLabel}
-                cursor="pointer"
-              >
-                {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => Number(value).toFixed(2)} />
-            </PieChart>
-          </ResponsiveContainer>
+      {loading ? (
+        <div className="flex justify-center items-center h-80">
+          <Loader2 className="animate-spin text-indigo-500" size={40} />
         </div>
-        <div className="w-full md:w-56 flex-shrink-0">
-          <div className="flex flex-col gap-3">
-            {data.map((entry, idx) => {
-              const value = Number(entry.value) || 0;
-              const pct =
-                total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
-              return (
-                <div
-                  key={`legend-${idx}`}
-                  className="flex items-center justify-between w-full text-left p-2 rounded"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="w-4 h-4 rounded"
-                      style={{ background: COLORS[idx % COLORS.length] }}
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      {entry.name}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {value.toFixed(2)} ({pct}%)
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      ) : chartData.series.length > 0 ? (
+        <ReactApexChart
+          options={chartOptions}
+          series={chartData.series}
+          type="donut"
+          height={350}
+        />
+      ) : (
+        <div className="flex justify-center items-center h-80">
+          <p className="text-gray-500">No data available for this period.</p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

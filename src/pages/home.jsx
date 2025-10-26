@@ -66,10 +66,10 @@ export default function HomeScreen() {
       <div className="space-y-8">
         <FinalResultHistoryCard range={timeFilter} />
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
-          <div className="xl:col-span-3">
+          <div className="xl:col-span-2 bg-white shadow-lg rounded-2xl p-6">
             <TotalBreakdownPie range={timeFilter} />
           </div>
-          <div className="xl:col-span-2">
+          <div className="xl:col-span-3 bg-white shadow-lg rounded-2xl p-6">
             <SizewiseStackedBarChart range={timeFilter} />
           </div>
         </div>
