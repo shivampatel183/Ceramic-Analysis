@@ -1,30 +1,41 @@
-const inkRates = {
-  base: 500,
-  brown: 500,
-  black: 1150,
-  blue: 1150,
-  red: 1950,
-  yellow: 1075,
-  green: 800,
-};
+import { getSettingsForDate } from "./getSettings";
 
-export function calculateInkCost(data) {
+export function calculateInkCost(data, allCostHistory) {
   let total = 0;
   let sizeWise = {};
 
   data.forEach((row) => {
-    let rowInkCost = 0;
+    // 1. Find settings for this date
+    const settings = getSettingsForDate(allCostHistory, row.date);
+    if (!settings) return;
 
-    Object.keys(inkRates).forEach((color) => {
-      const value = Number(row[color]) || 0;
-      rowInkCost += value * inkRates[color];
-    });
+    // 2. Get rates from snapshot
+    const INK_RATES = {
+      base: Number(settings.ink_rate_base) || 0,
+      brown: Number(settings.ink_rate_brown) || 0,
+      black: Number(settings.ink_rate_black) || 0,
+      blue: Number(settings.ink_rate_blue) || 0,
+      red: Number(settings.ink_rate_red) || 0,
+      yellow: Number(settings.ink_rate_yellow) || 0,
+      green: Number(settings.ink_rate_green) || 0,
+    };
 
-    total += rowInkCost;
+    // 3. Perform calculation
+    const cost =
+      (Number(row.base) || 0) * INK_RATES.base +
+      (Number(row.brown) || 0) * INK_RATES.brown +
+      (Number(row.black) || 0) * INK_RATES.black +
+      (Number(row.blue) || 0) * INK_RATES.blue +
+      (Number(row.red) || 0) * INK_RATES.red +
+      (Number(row.yellow) || 0) * INK_RATES.yellow +
+      (Number(row.green) || 0) * INK_RATES.green;
 
-    if (!sizeWise[row.size]) sizeWise[row.size] = 0;
-    sizeWise[row.size] += rowInkCost;
+    total += cost;
+    if (!sizeWise[row.size]) {
+      sizeWise[row.size] = 0;
+    }
+    sizeWise[row.size] += cost;
   });
 
-  return { sizeWise, total };
+  return { total, sizeWise };
 }

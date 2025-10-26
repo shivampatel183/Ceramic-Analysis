@@ -46,11 +46,13 @@ const departmentColumns = {
     "id",
     "date",
     "size",
-    "maintenance",
-    "legal_illegal",
-    "office",
-    "diesel",
-    "general_freight",
+    // --- OLD COLUMNS REMOVED ---
+    // "maintenance",
+    // "legal_illegal",
+    // "office",
+    // "diesel",
+    // "general_freight",
+    // ---------------------------
     "kiln_gap",
     "commutative_kiln_gap",
     "daily_unsizing_stock",

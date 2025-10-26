@@ -1,47 +1,39 @@
-export function calculateFuelConsumption(data) {
-  if (!data || data.length === 0) {
-    return { totalFuel: 0, fuelBySize: {}, coalConsumptionKgPerTon: 0 };
-  }
+import { getSettingsForDate } from "./getSettings";
 
-  let cumulativeCoal = 0;
-  let cumulativeSprayDryer = 0;
-
-  data.forEach((row) => {
-    cumulativeCoal += Number(row.coal_units_use) || 0;
-    cumulativeSprayDryer += Number(row.spray_dryer_production) || 0;
-  });
-
-  if (cumulativeSprayDryer === 0) {
-    return { totalFuel: 0, fuelBySize: {}, coalConsumptionKgPerTon: 0 };
-  }
-
-  const coalKgPerTon = (cumulativeCoal / cumulativeSprayDryer) * 1000 * 5.9;
-
-  const sizeWisePowder = {};
-  let totalPowder = 0;
+export function calculateFuelConsumption(data, allCostHistory) {
+  let totalFuel = 0;
+  let fuelBySize = {};
+  let totalCoalConsumption = 0;
+  let totalProduction = 0;
 
   data.forEach((row) => {
-    const size = row.size;
-    const pressBox = Number(row.press_box) || 0;
-    const greenWeight = Number(row.green_box_weight) || 0;
+    // 1. Find settings for this date
+    const settings = getSettingsForDate(allCostHistory, row.date);
+    if (!settings) return;
 
-    const powder = pressBox * greenWeight * 1.05;
-    sizeWisePowder[size] = (sizeWisePowder[size] || 0) + powder;
-    totalPowder += powder;
+    // 2. Get rate from snapshot
+    const rate = Number(settings.coal_rate_per_kg) || 0;
+
+    // 3. Perform calculation
+    const sprayDryerProd = Number(row.spray_dryer_production) || 0;
+    const coalUnits = Number(row.coal_units_use) || 0;
+
+    const fuelCost =
+      (coalUnits / sprayDryerProd) * (sprayDryerProd * 1000) * rate;
+    const validFuelCost = isNaN(fuelCost) || !isFinite(fuelCost) ? 0 : fuelCost;
+
+    totalFuel += validFuelCost;
+    if (!fuelBySize[row.size]) {
+      fuelBySize[row.size] = 0;
+    }
+    fuelBySize[row.size] += validFuelCost;
+
+    totalCoalConsumption += coalUnits;
+    totalProduction += sprayDryerProd;
   });
 
-  let sizeWiseFuel = {};
-  let totalFuelConsumption = 0;
+  const coalConsumptionKgPerTon =
+    totalProduction > 0 ? totalCoalConsumption / totalProduction : 0;
 
-  Object.entries(sizeWisePowder).forEach(([size, powder]) => {
-    const fuelShare = (powder / totalPowder) * (cumulativeCoal * 5.9); // distribute daily coal
-    sizeWiseFuel[size] = fuelShare;
-    totalFuelConsumption += fuelShare;
-  });
-
-  return {
-    totalFuel: totalFuelConsumption,
-    fuelBySize: sizeWiseFuel,
-    coalConsumptionKgPerTon: coalKgPerTon,
-  };
+  return { totalFuel, fuelBySize, coalConsumptionKgPerTon };
 }

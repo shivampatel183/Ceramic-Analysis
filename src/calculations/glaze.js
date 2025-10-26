@@ -1,34 +1,46 @@
-const glazeFactors = {
-  "600x600": { loss: 14.8991, cons: 15.19427 },
-  "200x1000": { loss: 16.19602, cons: 16.51994 },
-  "150x900": { loss: 24.5, cons: 24.99 },
-  "200x1200": { loss: 31.7746, cons: 32.4079 },
-  "400x400": { loss: 6.75127, cons: 6.8862954 },
-};
+import { getSettingsForDate } from "./getSettings";
 
-export function calculateGlazeConsumption(data) {
+export function calculateGlazeConsumption(data, allCostHistory) {
   let totalLoss = 0;
   let totalConsumption = 0;
   let sizeWise = {};
 
   data.forEach((row) => {
-    const size = row.size;
+    // 1. Find settings for this date
+    const settings = getSettingsForDate(allCostHistory, row.date);
+    if (!settings) return;
+
+    // 2. Get rates from snapshot
+    const OP_RATE = Number(settings.glaze_rate_op) || 0;
+    const VC_RATE = Number(settings.glaze_rate_vc) || 0;
+    const ENGOBE_RATE = Number(settings.glaze_rate_engobe) || 0;
+
+    // 3. Perform calculation (logic is unchanged)
+    const beforeFlow = Number(row.before_flow) || 0;
     const kilnEntry = Number(row.kiln_entry_box) || 0;
-    const beforeFlow = (Number(row.press_box) || 0) * 0.995;
+    const greenWeight = Number(row.green_box_weight) || 0;
 
-    if (!glazeFactors[size]) return;
+    const op = (greenWeight * 0.035 * 0.7) / 0.45;
+    const vc = (greenWeight * 0.023 * 0.7) / 0.45;
+    const engobe = (greenWeight * 0.035 * 0.7) / 0.4;
 
-    const { loss, cons } = glazeFactors[size];
+    const opLoss = (beforeFlow - kilnEntry) * op * OP_RATE;
+    const vcLoss = (beforeFlow - kilnEntry) * vc * VC_RATE;
+    const engobeLoss = (beforeFlow - kilnEntry) * engobe * ENGOBE_RATE;
+    const loss = opLoss + vcLoss + engobeLoss;
+    totalLoss += loss;
 
-    const glazeLoss = (beforeFlow - kilnEntry) * loss;
-    const glazeConsumption = beforeFlow * cons;
-    totalLoss += glazeLoss;
-    totalConsumption += glazeConsumption;
+    const opConsumption = kilnEntry * op * OP_RATE;
+    const vcConsumption = kilnEntry * vc * VC_RATE;
+    const engobeConsumption = kilnEntry * engobe * ENGOBE_RATE;
+    const consumption = opConsumption + vcConsumption + engobeConsumption;
+    totalConsumption += consumption;
 
-    sizeWise[size] = {
-      loss: (sizeWise[size]?.loss || 0) + glazeLoss,
-      consumption: (sizeWise[size]?.consumption || 0) + glazeConsumption,
-    };
+    if (!sizeWise[row.size]) {
+      sizeWise[row.size] = { loss: 0, consumption: 0 };
+    }
+    sizeWise[row.size].loss += loss;
+    sizeWise[row.size].consumption += consumption;
   });
 
   return { totalLoss, totalConsumption, sizeWise };

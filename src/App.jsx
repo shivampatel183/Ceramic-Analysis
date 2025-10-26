@@ -1,5 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Home, BarChart3, Database, User, LogOut, Loader2 } from "lucide-react";
+import {
+  Home,
+  BarChart3,
+  Database,
+  User,
+  LogOut,
+  Loader2,
+  Settings,
+} from "lucide-react";
 import {
   HashRouter as Router,
   Routes,
@@ -17,6 +25,7 @@ import Register from "./pages/register";
 import Data from "./pages/data";
 import Analysis from "./pages/analysis";
 import UserManagement from "./pages/UserManagement";
+import Fixedcost from "./pages/Fixedcost";
 
 const Sidebar = ({ onLogout, userRole }) => (
   <aside className="fixed top-0 left-0 h-screen w-[250px] bg-white border-r border-slate-200 flex flex-col p-6 shadow-sm z-50">
@@ -38,6 +47,11 @@ const Sidebar = ({ onLogout, userRole }) => (
             to="/usermanagement"
             icon={<User size={18} />}
             label="User Management"
+          />
+          <NavItem
+            to="/fixedcost"
+            icon={<Settings size={18} />}
+            label="Fixed Cost"
           />
           <NavItem to="/profile" icon={<User size={18} />} label="Profile" />
         </>
@@ -207,6 +221,14 @@ export default function App() {
             }
           />
           <Route
+            path="/fixedcost"
+            element={
+              <ProtectedRoute isAllowed={user && isAdmin}>
+                <Fixedcost />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/profile"
             element={
               <ProtectedRoute isAllowed={user && userRole}>
@@ -230,6 +252,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </main>
