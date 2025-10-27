@@ -14,6 +14,7 @@ export function calculateFinalResult(
   totalProduction
 ) {
   // Safe fallbacks with defaults
+
   const powder = {
     sizeWise: powderRaw?.sizeWise || {},
     total: powderRaw?.total || 0,
@@ -137,5 +138,6 @@ export function calculateFinalResult(
     result.SqFeetCost[size] = (parseFloat(result.Total[size]) / 8.6).toFixed(2);
   });
 
+  console.log("Final Result Calculation Output:", result);
   return result;
 }

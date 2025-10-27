@@ -110,41 +110,101 @@ export default function SizewiseStackedBarChart({ range }) {
           netProductionResult
         );
 
-        if (!finalResult || finalResult.length === 0) {
+        // Backwards-compat: older/newer calculateFinalResult implementations may
+        // return either an array (per-size items) OR an object with breakdown
+        // maps (Body, Glaze, Total, etc.). Normalize both into an array shape
+        // the chart expects: [{ size, powder, glaze, fuel, gas, electricity, packing, fixed, ink }, ...]
+        let normalized = null;
+
+        if (Array.isArray(finalResult)) {
+          normalized = finalResult;
+        } else if (finalResult && typeof finalResult === "object") {
+          // prefer finalResult.Total keys if present
+          const totalObj = finalResult.Total || {};
+          const sizes = Object.keys(totalObj).filter((s) => s !== "Total");
+          if (sizes.length > 0) {
+            normalized = sizes.map((size) => ({
+              size,
+              powder: Number(finalResult.Body?.[size] || 0),
+              glaze: Number(finalResult.Glaze?.[size] || 0),
+              fuel: Number(finalResult.Fuel?.[size] || 0),
+              gas: Number(finalResult.Gas?.[size] || 0),
+              electricity: Number(finalResult.Electricity?.[size] || 0),
+              packing: Number(finalResult.Packing?.[size] || 0),
+              fixed: Number(finalResult.Fixed?.[size] || 0),
+              ink: Number(finalResult.Ink?.[size] || 0),
+            }));
+          }
+        }
+
+        if (!normalized || normalized.length === 0) {
           setChartData({ series: [], categories: [] });
           setLoading(false);
           return;
         }
 
         // 5. Format data for the stacked bar chart
-        const categories = finalResult.map((item) => item.size);
+        const categories = normalized.map((item) => item.size);
+        // helper to compute cost per unit for each size (supports array or object shapes)
+        const getCostPerUnit = (item) => {
+          // If the normalized item already has a costPerUnit field, use it
+          if (item.costPerUnit != null) return Number(item.costPerUnit) || 0;
+          // If item has totalCost and we have production counts, derive cost per unit
+          if (item.totalCost != null) {
+            const prodEntry = productionBySize.find(
+              (p) => p.size === item.size
+            );
+            const prod = prodEntry ? Number(prodEntry.total) || 1 : 1;
+            return prod === 0 ? 0 : Number(item.totalCost) / prod;
+          }
+          // Fallback: try to use Total map from finalResult if available
+          if (
+            finalResult &&
+            finalResult.Total &&
+            finalResult.Total[item.size] != null
+          ) {
+            return Number(finalResult.Total[item.size]) || 0;
+          }
+          return 0;
+        };
+
         const series = [
           {
             name: "Powder",
-            data: finalResult.map((item) => item.powder.toFixed(0)),
+            data: normalized.map((item) => Number(item.powder || 0).toFixed(0)),
           },
           {
             name: "Glaze",
-            data: finalResult.map((item) => item.glaze.toFixed(0)),
+            data: normalized.map((item) => Number(item.glaze || 0).toFixed(0)),
           },
           {
             name: "Fuel",
-            data: finalResult.map((item) => item.fuel.toFixed(0)),
+            data: normalized.map((item) => Number(item.fuel || 0).toFixed(0)),
           },
-          { name: "Gas", data: finalResult.map((item) => item.gas.toFixed(0)) },
+          {
+            name: "Gas",
+            data: normalized.map((item) => Number(item.gas || 0).toFixed(0)),
+          },
           {
             name: "Electricity",
-            data: finalResult.map((item) => item.electricity.toFixed(0)),
+            data: normalized.map((item) =>
+              Number(item.electricity || 0).toFixed(0)
+            ),
           },
           {
             name: "Packing",
-            data: finalResult.map((item) => item.packing.toFixed(0)),
+            data: normalized.map((item) =>
+              Number(item.packing || 0).toFixed(0)
+            ),
           },
           {
             name: "Fixed",
-            data: finalResult.map((item) => item.fixed.toFixed(0)),
+            data: normalized.map((item) => Number(item.fixed || 0).toFixed(0)),
           },
-          { name: "Ink", data: finalResult.map((item) => item.ink.toFixed(0)) },
+          {
+            name: "Ink",
+            data: normalized.map((item) => Number(item.ink || 0).toFixed(0)),
+          },
         ];
 
         setChartData({ series, categories });

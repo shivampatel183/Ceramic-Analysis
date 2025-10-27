@@ -98,14 +98,34 @@ export async function fetchFinalResultHistory(range = "week") {
         netProductionResult
       );
 
-      // 4. Convert the finalResult array into the object structure the chart expects
+      // 4. Convert the finalResult into the object structure the chart expects.
+      // `calculateFinalResult` historically returned an array of per-size items,
+      // but newer versions return an object with breakdown maps (Total, Body, ...).
+      // Support both shapes here.
       const finalResultObject = {};
-      finalResultArray.forEach((item) => {
-        finalResultObject[item.size] = {
-          costPerUnit: item.costPerUnit,
-          totalCost: item.totalCost,
-        };
-      });
+
+      if (Array.isArray(finalResultArray)) {
+        finalResultArray.forEach((item) => {
+          finalResultObject[item.size] = {
+            costPerUnit: item.costPerUnit,
+            totalCost: item.totalCost,
+          };
+        });
+      } else if (finalResultArray && typeof finalResultArray === "object") {
+        const totalMap = finalResultArray.Total || {};
+        const sizes = Object.keys(totalMap).filter((s) => s !== "Total");
+        sizes.forEach((size) => {
+          const costPerUnit = Number(totalMap[size]) || 0;
+          const productionEntry = productionBySize.find((p) => p.size === size);
+          const productionCount = productionEntry
+            ? Number(productionEntry.total) || 0
+            : 0;
+          finalResultObject[size] = {
+            costPerUnit,
+            totalCost: Number((costPerUnit * productionCount).toFixed(2)),
+          };
+        });
+      }
 
       results.push({
         date: iso,
