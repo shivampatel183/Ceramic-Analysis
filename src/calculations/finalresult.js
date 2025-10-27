@@ -1,77 +1,141 @@
+// src/calculations/finalresult.js
+
+// This function now takes all the pre-calculated data as arguments
 export function calculateFinalResult(
-  powder,
-  glaze,
-  fuel,
-  gas,
-  electricity,
-  packing,
-  fixed,
-  ink,
-  productionBySize,
-  netProduction
+  powderRaw,
+  glazeRaw,
+  fuelRaw,
+  gasRaw,
+  electricityRaw,
+  packingRaw,
+  fixedRaw,
+  inkRaw,
+  netproductionRaw,
+  totalProduction
 ) {
-  if (
-    !productionBySize ||
-    productionBySize.length === 0 ||
-    netProduction === 0
-  ) {
-    return [];
-  }
+  // Safe fallbacks with defaults
+  const powder = {
+    sizeWise: powderRaw?.sizeWise || {},
+    total: powderRaw?.total || 0,
+  };
+  const glaze = {
+    sizeWise: Object.fromEntries(
+      Object.entries(glazeRaw?.sizeWise || {}).map(([size, val]) => [
+        size,
+        Number(val?.consumption) || 0,
+      ])
+    ),
+    total: Number(glazeRaw?.totalConsumption) || 0,
+  };
+  const fuel = {
+    sizeWise: fuelRaw?.fuelBySize || {},
+    total: fuelRaw?.totalFuel || 0,
+  };
+  const gas = {
+    sizeWise: gasRaw?.gasBySize || {},
+    total: gasRaw?.totalGas || 0,
+  };
+  const electricity = {
+    sizeWise: electricityRaw?.sizeWise || {},
+    total: electricityRaw?.total || 0,
+  };
+  const packing = {
+    sizeWise: packingRaw?.sizeWise || {},
+    total: packingRaw?.total || 0,
+  };
+  const Fixed = {
+    sizeWise: fixedRaw?.sizeWise || {},
+    total: fixedRaw?.total || 0,
+  };
+  const ink = { sizeWise: inkRaw?.sizeWise || {}, total: inkRaw?.total || 0 };
 
-  // Get a unique list of all sizes that have production
-  const allSizes = new Set([...productionBySize.map((p) => p.size)]);
-  const result = [];
+  const sizes = [
+    "600x600",
+    "200x1000",
+    "150x900",
+    "200x1200",
+    "400x400",
+    "Total",
+  ];
 
-  for (const size of allSizes) {
-    // Get the production total for this size
-    const prod = productionBySize.find((p) => p.size === size)?.total || 0;
+  const result = {
+    Body: {},
+    Glaze: {},
+    Packing: {},
+    Fuel: {},
+    Gas: {},
+    Electricity: {},
+    Ink: {},
+    Fixed: {},
+    Total: {},
+    SqFeetCost: {},
+  };
 
-    // Skip any sizes that have no production
-    if (prod === 0) continue;
+  // Safe division function
+  const safeDivide = (num, denom) => {
+    const n = Number(num) || 0;
+    const d = Number(denom) || 0;
+    return d === 0 ? "0.00" : (n / d).toFixed(2);
+  };
 
-    // --- 🚨 THIS IS THE FIX 🚨 ---
-    // Instead of averaging the total, we get the *exact* cost for this size
-    // from the 'sizeWise' (or 'fuelBySize'/'gasBySize') objects.
+  const productiondata = Object.fromEntries(
+    (netproductionRaw || []).map((row) => [row.size, row.total])
+  );
 
-    const powderCost = powder.sizeWise[size] || 0;
-    const glazeCost = glaze.sizeWise[size]?.consumption || 0; // glaze.js stores an object
-    const fuelCost = fuel.fuelBySize[size] || 0; // fuel.js uses 'fuelBySize'
-    const gasCost = gas.gasBySize[size] || 0; // gas.js uses 'gasBySize'
-    const electricityCost = electricity.sizeWise[size] || 0;
-    const packingCost = packing.sizeWise[size] || 0;
-    const fixedCost = fixed.sizeWise[size] || 0;
-    const inkCost = ink.sizeWise[size] || 0;
-    // --- END OF FIX ---
+  sizes.forEach((size) => {
+    let costBody = 0,
+      costGlaze = 0,
+      costPacking = 0,
+      costFuel = 0,
+      costGas = 0,
+      costElectricity = 0,
+      costInk = 0,
+      costFixed = 0;
 
-    // Now, we sum the *actual* costs for this size
-    const totalCost =
-      powderCost +
-      glazeCost +
-      fuelCost +
-      gasCost +
-      electricityCost +
-      packingCost +
-      fixedCost +
-      inkCost;
+    if (size === "Total") {
+      const prod = Number(totalProduction) || 1;
+      costBody = safeDivide(powder.total, prod);
+      costGlaze = safeDivide(glaze.total, prod);
+      costPacking = safeDivide(packing.total, prod);
+      costFuel = safeDivide(fuel.total, prod);
+      costGas = safeDivide(gas.total, prod);
+      costElectricity = safeDivide(electricity.total, prod);
+      costInk = safeDivide(ink.total, prod);
+      costFixed = safeDivide(Fixed.total, prod);
+    } else {
+      const prod = Number(productiondata[size]) || 1;
+      costBody = safeDivide(powder.sizeWise?.[size], prod);
+      costGlaze = safeDivide(glaze.sizeWise?.[size], prod);
+      costPacking = safeDivide(packing.sizeWise?.[size], prod);
+      costFuel = safeDivide(fuel.sizeWise?.[size], prod);
+      costGas = safeDivide(gas.sizeWise?.[size], prod);
+      costElectricity = safeDivide(electricity.sizeWise?.[size], prod);
+      costInk = safeDivide(ink.sizeWise?.[size], prod);
+      costFixed = safeDivide(Fixed.sizeWise?.[size], prod);
+    }
 
-    const costPerUnit = totalCost / prod;
+    result.Body[size] = costBody;
+    result.Glaze[size] = costGlaze;
+    result.Packing[size] = costPacking;
+    result.Fuel[size] = costFuel;
+    result.Gas[size] = costGas;
+    result.Electricity[size] = costElectricity;
+    result.Ink[size] = costInk;
+    result.Fixed[size] = costFixed;
 
-    // Add this size's data to the final result
-    result.push({
-      size,
-      production: prod,
-      totalCost,
-      costPerUnit: isNaN(costPerUnit) ? 0 : costPerUnit,
-      powder: powderCost,
-      glaze: glazeCost,
-      fuel: fuelCost,
-      gas: gasCost,
-      electricity: electricityCost,
-      packing: packingCost,
-      fixed: fixedCost,
-      ink: inkCost,
-    });
-  }
+    result.Total[size] = (
+      parseFloat(costBody) +
+      parseFloat(costGlaze) +
+      parseFloat(costPacking) +
+      parseFloat(costFuel) +
+      parseFloat(costGas) +
+      parseFloat(costElectricity) +
+      parseFloat(costInk) +
+      parseFloat(costFixed)
+    ).toFixed(2);
+
+    result.SqFeetCost[size] = (parseFloat(result.Total[size]) / 8.6).toFixed(2);
+  });
 
   return result;
 }
