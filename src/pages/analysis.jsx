@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
-// Import all the new synchronous calculation functions
+// Import all calculation functions
 import { calculatePowderConsumption } from "../calculations/powder";
 import { calculateGlazeConsumption } from "../calculations/glaze";
 import {
@@ -16,6 +16,7 @@ import { calculateFixedCost } from "../calculations/fixedcost";
 import { calculateInkCost } from "../calculations/inkcost";
 import { calculateFinalResult } from "../calculations/finalresult";
 
+// Import components
 import SizeTableCard from "../components/SizeTableCard";
 import StatCard from "../components/StatCard";
 import FinalResultTable from "../components/FinalResultTable";
@@ -26,7 +27,7 @@ export default function Analysis() {
   );
   const [loading, setLoading] = useState(true);
 
-  // All state declarations remain the same
+  // States for results
   const [totalPowder, setTotalPowder] = useState(0);
   const [powderBySize, setPowderBySize] = useState({});
   const [totalGlazeLoss, setTotalGlazeLoss] = useState(0);
@@ -49,7 +50,10 @@ export default function Analysis() {
   const [inkCost, setInkCost] = useState({ sizeWise: {}, total: 0 });
   const [finalResult, setFinalResult] = useState(null);
 
-  // Date filter logic remains the same
+  // 1. THIS STATE NOW HOLDS THE ENTIRE SETTINGS HISTORY
+  const [allCostHistory, setAllCostHistory] = useState([]);
+
+  // Date filter logic (unchanged)
   function applyDateFilter(query, filter) {
     const today = new Date();
     if (filter === "day") {
@@ -68,7 +72,7 @@ export default function Analysis() {
     return query;
   }
 
-  // Central data fetching function
+  // Fetch production data (unchanged)
   async function fetchProductionData(filter, applyDateFilter) {
     let query = supabase.from("production_data").select("*");
     query = applyDateFilter(query, filter);
@@ -80,20 +84,35 @@ export default function Analysis() {
     return data || [];
   }
 
+  // 2. THIS FUNCTION NOW FETCHES ALL COST HISTORY
+  async function fetchAllCostHistory() {
+    // We must fetch ALL history for the calculations to be correct
+    const { data, error } = await supabase
+      .from("cost_settings_history")
+      .select("*");
+    if (error) {
+      console.error("Error fetching cost history:", error);
+      return [];
+    }
+    return data;
+  }
+
   useEffect(() => {
     localStorage.setItem("analysisTimeFilter", analysisTimeFilter);
 
     const runAnalysis = async () => {
       setLoading(true);
 
-      // 1. Fetch all data in a single API call
-      const productionData = await fetchProductionData(
-        analysisTimeFilter,
-        applyDateFilter
-      );
+      // 3. FETCH BOTH DATASTREAMS
+      const [productionData, costHistoryData] = await Promise.all([
+        fetchProductionData(analysisTimeFilter, applyDateFilter),
+        fetchAllCostHistory(),
+      ]);
+
+      setAllCostHistory(costHistoryData); // Save history to state
 
       if (productionData.length === 0) {
-        // Reset all states if there's no data for the selected period
+        // Reset all states... (unchanged)
         setTotalPowder(0);
         setPowderBySize({});
         setTotalGlazeLoss(0);
@@ -116,7 +135,7 @@ export default function Analysis() {
         return;
       }
 
-      // 2. Run all calculations with the fetched data. Since these are fast, Promise.all is not strictly necessary but shows the parallel pattern.
+      // 4. PASS 'costHistoryData' TO ALL CALCULATION FUNCTIONS
       const [
         powder,
         glaze,
@@ -129,14 +148,14 @@ export default function Analysis() {
         netProductionResult,
         productionBySize,
       ] = [
-        calculatePowderConsumption(productionData),
-        calculateGlazeConsumption(productionData),
-        calculateFuelConsumption(productionData),
-        calculateGasConsumption(productionData),
-        calculateElectricityCost(productionData),
-        calculatePackingCost(productionData),
-        calculateFixedCost(productionData),
-        calculateInkCost(productionData),
+        calculatePowderConsumption(productionData, costHistoryData),
+        calculateGlazeConsumption(productionData, costHistoryData),
+        calculateFuelConsumption(productionData, costHistoryData),
+        calculateGasConsumption(productionData, costHistoryData),
+        calculateElectricityCost(productionData, costHistoryData),
+        calculatePackingCost(productionData, costHistoryData),
+        calculateFixedCost(productionData, costHistoryData),
+        calculateInkCost(productionData, costHistoryData),
         calculateNetProduction(productionData),
         calculateProductionBySize(productionData),
       ];
@@ -154,7 +173,7 @@ export default function Analysis() {
         netProductionResult
       );
 
-      // 3. Set all state at once, triggering a single re-render
+      // 5. Set all state (unchanged)
       setTotalPowder(powder.total);
       setPowderBySize(powder.sizeWise);
       setTotalGlazeLoss(glaze.totalLoss);
@@ -180,6 +199,7 @@ export default function Analysis() {
     runAnalysis();
   }, [analysisTimeFilter]);
 
+  // ... (rest of the file (return JSX) is unchanged) ...
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -190,6 +210,7 @@ export default function Analysis() {
 
   return (
     <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
+      {/* ... (all JSX is unchanged) ... */}
       <div className="flex flex-col md:flex-row items-center justify-between mb-8">
         <h1 className="text-xl font-bold text-gray-800">Production Analysis</h1>
         <select
@@ -211,7 +232,6 @@ export default function Analysis() {
           No data available for the selected period.
         </p>
       )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <StatCard
           title="Net Production"

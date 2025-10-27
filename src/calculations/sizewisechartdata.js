@@ -13,6 +13,41 @@ import {
   calculateNetProduction,
 } from "./netProduction";
 
+// 1. Create a helper to get all data at once
+async function getRequiredData(date) {
+  // Get the logged-in user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not found");
+
+  // Fetch production data for this user AND date
+  const prodPromise = supabase
+    .from("production_data")
+    .select("*")
+    .eq("date", date)
+    .eq("user_id", user.id);
+
+  // Fetch ALL cost history
+  const settingsPromise = supabase
+    .from("cost_settings_history")
+    .select("*")
+    .eq("user_id", user.id);
+
+  const [prodResult, settingsResult] = await Promise.all([
+    prodPromise,
+    settingsPromise,
+  ]);
+
+  if (prodResult.error) throw prodResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+
+  return {
+    productionData: prodResult.data || [],
+    allCostHistory: settingsResult.data || [],
+  };
+}
+
 export async function fetchFinalResultHistory(range = "week") {
   const results = [];
   const today = new Date();
@@ -26,46 +61,80 @@ export async function fetchFinalResultHistory(range = "week") {
     d.setDate(today.getDate() - i);
     const iso = d.toISOString().split("T")[0];
 
-    // Fetch all raw data for a single day
-    const { data: productionData, error } = await supabase
-      .from("production_data")
-      .select("*")
-      .eq("date", iso);
+    try {
+      // 2. Fetch all data using our new helper
+      const { productionData, allCostHistory } = await getRequiredData(iso);
 
-    if (error || !productionData || productionData.length === 0) {
-      results.push({ date: iso, total: {} });
-      continue;
+      if (!productionData || productionData.length === 0) {
+        results.push({ date: iso, total: {} }); // Push empty data for this day
+        continue;
+      }
+
+      // 3. Perform all calculations *with* cost history
+      const powder = calculatePowderConsumption(productionData, allCostHistory);
+      const glaze = calculateGlazeConsumption(productionData, allCostHistory);
+      const fuel = calculateFuelConsumption(productionData, allCostHistory);
+      const gas = calculateGasConsumption(productionData, allCostHistory);
+      const electricity = calculateElectricityCost(
+        productionData,
+        allCostHistory
+      );
+      const packing = calculatePackingCost(productionData, allCostHistory);
+      const fixed = calculateFixedCost(productionData, allCostHistory);
+      const ink = calculateInkCost(productionData, allCostHistory);
+      const netProductionResult = calculateNetProduction(productionData);
+      const productionBySize = calculateProductionBySize(productionData);
+
+      const finalResultArray = calculateFinalResult(
+        powder,
+        glaze,
+        fuel,
+        gas,
+        electricity,
+        packing,
+        fixed,
+        ink,
+        productionBySize,
+        netProductionResult
+      );
+
+      // 4. Convert the finalResult into the object structure the chart expects.
+      // `calculateFinalResult` historically returned an array of per-size items,
+      // but newer versions return an object with breakdown maps (Total, Body, ...).
+      // Support both shapes here.
+      const finalResultObject = {};
+
+      if (Array.isArray(finalResultArray)) {
+        finalResultArray.forEach((item) => {
+          finalResultObject[item.size] = {
+            costPerUnit: item.costPerUnit,
+            totalCost: item.totalCost,
+          };
+        });
+      } else if (finalResultArray && typeof finalResultArray === "object") {
+        const totalMap = finalResultArray.Total || {};
+        const sizes = Object.keys(totalMap).filter((s) => s !== "Total");
+        sizes.forEach((size) => {
+          const costPerUnit = Number(totalMap[size]) || 0;
+          const productionEntry = productionBySize.find((p) => p.size === size);
+          const productionCount = productionEntry
+            ? Number(productionEntry.total) || 0
+            : 0;
+          finalResultObject[size] = {
+            costPerUnit,
+            totalCost: Number((costPerUnit * productionCount).toFixed(2)),
+          };
+        });
+      }
+
+      results.push({
+        date: iso,
+        total: finalResultObject, // Push the correctly formatted object
+      });
+    } catch (error) {
+      console.error(`Error processing data for ${iso}:`, error);
+      results.push({ date: iso, total: {} }); // Push empty data on error
     }
-
-    // Perform all calculations for that day
-    const powder = calculatePowderConsumption(productionData);
-    const glaze = calculateGlazeConsumption(productionData);
-    const fuel = calculateFuelConsumption(productionData);
-    const gas = calculateGasConsumption(productionData);
-    const electricity = calculateElectricityCost(productionData);
-    const packing = calculatePackingCost(productionData);
-    const fixed = calculateFixedCost(productionData);
-    const ink = calculateInkCost(productionData);
-    const netProductionResult = calculateNetProduction(productionData);
-    const productionBySize = calculateProductionBySize(productionData);
-
-    const finalResult = calculateFinalResult(
-      powder,
-      glaze,
-      fuel,
-      gas,
-      electricity,
-      packing,
-      fixed,
-      ink,
-      productionBySize,
-      netProductionResult
-    );
-
-    results.push({
-      date: iso,
-      total: finalResult?.Total ?? {},
-    });
   }
 
   return results;

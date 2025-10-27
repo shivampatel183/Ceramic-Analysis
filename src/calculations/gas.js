@@ -1,56 +1,39 @@
-// constants
-const GAS_RATE = 45.5;
-const KCL_FACTOR = 8600;
+import { getSettingsForDate } from "./getSettings";
 
-export function calculateGasConsumption(data) {
-  if (!data || data.length === 0) {
-    return { totalGas: 0, gasBySize: {}, kclPerKg: 0 };
-  }
-
-  const groupedByDate = {};
-  data.forEach((row) => {
-    const date = row.date;
-    if (!groupedByDate[date]) groupedByDate[date] = [];
-    groupedByDate[date].push(row);
-  });
-
+export function calculateGasConsumption(data, allCostHistory) {
   let totalGas = 0;
   let gasBySize = {};
-  let totalKclPerKg = 0;
-  let dayCount = 0;
+  let totalKcl = 0;
+  let totalWeight = 0;
 
-  Object.values(groupedByDate).forEach((rows) => {
-    const dailyGas = rows.reduce(
-      (sum, r) => sum + (Number(r.gas_consumption) || 0),
-      0
-    );
-    const dailyTotal = dailyGas * GAS_RATE;
+  data.forEach((row) => {
+    // 1. Find settings for this date
+    const settings = getSettingsForDate(allCostHistory, row.date);
+    if (!settings) return;
 
-    let denom = 0;
-    const sizeValues = {};
-    rows.forEach((r) => {
-      const kilnEntry = Number(r.kiln_entry_box) || 0;
-      const greenBox = Number(r.green_box_weight) || 0;
-      const value = kilnEntry * greenBox;
-      sizeValues[r.size] = (sizeValues[r.size] || 0) + value;
-      denom += value;
-    });
+    // 2. Get rate from snapshot
+    const rate = Number(settings.gas_rate_per_scm) || 0;
 
-    Object.entries(sizeValues).forEach(([size, value]) => {
-      const share = denom > 0 ? (value / denom) * dailyTotal : 0;
-      gasBySize[size] = (gasBySize[size] || 0) + share;
-    });
+    // 3. Perform calculation
+    const gas = Number(row.gas_consumption) || 0;
+    const cost = gas * rate;
 
-    if (denom > 0) {
-      const dailyKcl = (dailyGas * KCL_FACTOR) / denom;
-      totalKclPerKg += dailyKcl;
-      dayCount++;
+    totalGas += cost;
+    if (!gasBySize[row.size]) {
+      gasBySize[row.size] = 0;
     }
+    gasBySize[row.size] += cost;
 
-    totalGas += dailyTotal;
+    const press_weight = Number(row.green_box_weight) || 0;
+    const press_box = Number(row.press_box) || 0;
+    const total_weight_kg = press_weight * press_box;
+    if (total_weight_kg > 0) {
+      totalKcl += (gas * 8500) / total_weight_kg;
+      totalWeight += 1;
+    }
   });
 
-  const avgKclPerKg = dayCount > 0 ? totalKclPerKg / dayCount : 0;
+  const kclPerKg = totalWeight > 0 ? totalKcl / totalWeight : 0;
 
-  return { totalGas, gasBySize, kclPerKg: avgKclPerKg };
+  return { totalGas, gasBySize, kclPerKg };
 }

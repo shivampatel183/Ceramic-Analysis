@@ -1,29 +1,29 @@
-const bodyCostMap = {
-  "600x600": 1.395,
-  "200x1000": 1.395,
-  "150x900": 1.395,
-  "200x1200": 1.29,
-  "400x400": 1.218,
-};
+import { getSettingsForDate } from "./getSettings";
 
-export function calculatePowderConsumption(data) {
-  if (!data || data.length === 0) {
-    return { total: 0, sizeWise: {} };
-  }
-
+export function calculatePowderConsumption(data, allCostHistory) {
   let total = 0;
   let sizeWise = {};
 
   data.forEach((row) => {
-    const size = row.size;
-    const press = Number(row.press_box) || 0;
-    const green = Number(row.green_box_weight) || 0;
-    const bodyCost = bodyCostMap[size] || 0;
+    // 1. Find settings for this date
+    const settings = getSettingsForDate(allCostHistory, row.date);
+    if (!settings) return;
 
-    const consumption = press * green * 1.05 * bodyCost;
+    // 2. Get rate from snapshot
+    const rate = Number(settings.body_cost_per_kg) || 0;
 
-    total += consumption;
-    sizeWise[size] = (sizeWise[size] || 0) + consumption;
+    // 3. Perform calculation
+    const pressBox = Number(row.press_box) || 0;
+    const greenWeight = Number(row.green_box_weight) || 0;
+
+    const powderKg = pressBox * greenWeight * rate;
+
+    total += powderKg;
+
+    if (!sizeWise[row.size]) {
+      sizeWise[row.size] = 0;
+    }
+    sizeWise[row.size] += powderKg;
   });
 
   return { total, sizeWise };
