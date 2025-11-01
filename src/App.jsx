@@ -192,10 +192,10 @@ export default function App() {
               !user ? <Login /> : <Navigate to={isAdmin ? "/home" : "/sheet"} />
             }
           />
-          <Route
+          {/* <Route
             path="/signup"
-            element={!user ? <Register /> : <Navigate to="/home" />}
-          />
+            element={!user ? <Register /> : <Navigate to="/login" />}
+          /> */}
           <Route
             path="/home"
             element={
