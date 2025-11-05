@@ -237,7 +237,6 @@ export default function App() {
             }
           />
           <Route
-            path="/sheet"
             element={
               <ProtectedRoute isAllowed={user && userRole}>
                 <Sheet userDepartment={userDepartment} />
