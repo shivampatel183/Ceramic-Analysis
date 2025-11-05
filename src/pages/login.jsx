@@ -2,27 +2,84 @@ import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import Toast from "../components/Toast.jsx";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState(null); // { type, message } | null
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setNotification(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      alert(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) {
+        setNotification({ type: "error", message: error.message });
+      }
+      // on success, Supabase sets the session; navigate elsewhere if needed
+    } catch (err) {
+      setNotification({
+        type: "error",
+        message: err.message || "Login failed.",
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    setNotification(null);
+    if (!email) {
+      setNotification({
+        type: "error",
+        message:
+          "Please enter your email address above to reset your password.",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/#/reset-password`,
+        }
+      );
+      if (error) {
+        setNotification({ type: "error", message: error.message });
+      } else {
+        setNotification({
+          type: "success",
+          message: "Password reset instructions sent! Check your email.",
+        });
+      }
+    } catch (err) {
+      setNotification({
+        type: "error",
+        message: err.message || "Unable to send reset email.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      {/* Render Toast only when we have a notification */}
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onDismiss={() => setNotification(null)}
+        />
+      )}
+
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
         <h2 className="text-3xl font-bold text-center mb-2 text-gray-800">
           Welcome Back
@@ -43,8 +100,10 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
+
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700">
               Password
@@ -56,8 +115,21 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
+
+          <div className="text-right -mt-4">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="text-xs font-medium text-indigo-600 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              Forgot Password?
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

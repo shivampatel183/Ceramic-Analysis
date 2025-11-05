@@ -26,7 +26,7 @@ import Data from "./pages/data";
 import Analysis from "./pages/analysis";
 import UserManagement from "./pages/UserManagement";
 import Fixedcost from "./pages/Fixedcost";
-
+import ResetPassword from "./pages/ResetPassword.jsx";
 const Sidebar = ({ onLogout, userRole }) => (
   <aside className="fixed top-0 left-0 h-screen w-[250px] bg-white border-r border-slate-200 flex flex-col p-6 shadow-sm z-50">
     <h2 className="text-2xl font-bold mb-10 tracking-tight text-indigo-600">
@@ -192,6 +192,7 @@ export default function App() {
               !user ? <Login /> : <Navigate to={isAdmin ? "/home" : "/sheet"} />
             }
           />
+          <Route path="/reset-password" element={<ResetPassword />} />
           {/* <Route
             path="/signup"
             element={!user ? <Register /> : <Navigate to="/login" />}
