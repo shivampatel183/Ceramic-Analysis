@@ -60,15 +60,6 @@ const departmentColumns = {
   ],
 };
 
-// A utility function to format dates consistently.
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-
-  const userTimezoneOffset = d.getTimezoneOffset() * 60000;
-  const correctedDate = new Date(d.getTime() + userTimezoneOffset);
-  return correctedDate.toLocaleDateString("en-GB");
-};
 
 export default function DataTable({ userRole, userDepartment }) {
   const [rows, setRows] = useState([]);
