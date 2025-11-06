@@ -16,7 +16,7 @@ import {
   NavLink,
 } from "react-router-dom";
 import { supabase } from "./supabaseClient";
-
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import Homepage from "./pages/home";
 import Sheet from "./pages/sheet";
 import Profile from "./pages/profile";
@@ -196,7 +196,7 @@ export default function App() {
           <Route
             path="/signup"
             element={!user ? <Register /> : <Navigate to="/login" />}
-          /> 
+          />
           <Route
             path="/home"
             element={
@@ -257,6 +257,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </main>
+      <SpeedInsights />
     </Router>
   );
 }
