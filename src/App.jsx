@@ -193,10 +193,10 @@ export default function App() {
             }
           />
           <Route path="/reset-password" element={<ResetPassword />} />
-          {/* <Route
+          <Route
             path="/signup"
             element={!user ? <Register /> : <Navigate to="/login" />}
-          /> */}
+          /> 
           <Route
             path="/home"
             element={
