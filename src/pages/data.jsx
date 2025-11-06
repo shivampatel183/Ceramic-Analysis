@@ -64,10 +64,10 @@ const departmentColumns = {
 const formatDate = (value) => {
   if (!value) return "-";
   const d = new Date(value);
-  // Adjust for timezone offset to display the correct date
+
   const userTimezoneOffset = d.getTimezoneOffset() * 60000;
   const correctedDate = new Date(d.getTime() + userTimezoneOffset);
-  return correctedDate.toLocaleDateString("en-GB"); // DD/MM/YYYY format
+  return correctedDate.toLocaleDateString("en-GB");
 };
 
 export default function DataTable({ userRole, userDepartment }) {
